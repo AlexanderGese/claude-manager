@@ -12,9 +12,11 @@ function checks(): Check[] {
     detail: paths.root,
   });
 
+  let hookOk = false;
+  try { hookOk = (statSync(paths.hook).mode & 0o111) !== 0; } catch { /* missing or unreadable */ }
   out.push({
     name: "hook.sh installed",
-    ok: existsSync(paths.hook) && (statSync(paths.hook).mode & 0o111) !== 0,
+    ok: hookOk,
     detail: paths.hook,
   });
 
