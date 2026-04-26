@@ -38,6 +38,8 @@ export function App({ db, initialFilterCwd, initialQuery, onSelect, onCancel }: 
   const [filterCwd] = useState<string | null>(initialFilterCwd);
   const [selected, setSelected] = useState(0);
   const [tick, force] = useState(0);
+  // When non-null, we are editing the custom_name of rows[selected].
+  const [editing, setEditing] = useState<string | null>(null);
 
   const hideMissing = useMemo(() => {
     const v = db.query<{ value: string }, []>(
@@ -56,13 +58,38 @@ export function App({ db, initialFilterCwd, initialQuery, onSelect, onCancel }: 
   );
 
   useInput((input, key) => {
-    // Global: quit
+    // ── RENAME MODE captures everything ───────────────────────────────
+    if (editing !== null) {
+      if (key.escape) { setEditing(null); return; }
+      if (key.return) {
+        const row = rows[selected];
+        if (row) {
+          const trimmed = editing.trim();
+          db.run(
+            "UPDATE sessions SET custom_name = ? WHERE session_id = ?",
+            [trimmed.length > 0 ? trimmed : null, row.session_id],
+          );
+          force(n => n + 1);
+        }
+        setEditing(null);
+        return;
+      }
+      if (key.backspace || key.delete) {
+        setEditing(s => (s ?? "").slice(0, -1));
+        return;
+      }
+      if (input && !key.ctrl && !key.meta && input.length === 1 && input >= " ") {
+        setEditing(s => (s ?? "") + input);
+      }
+      return;
+    }
+
+    // ── GLOBAL ────────────────────────────────────────────────────────
     if (key.escape || (key.ctrl && input === "c") || input === "q") {
       onCancel();
       exit();
       return;
     }
-    // Global: cycle view
     if (key.tab) {
       const idx = VIEWS.indexOf(view);
       const next = key.shift ? VIEWS[(idx - 1 + VIEWS.length) % VIEWS.length] : VIEWS[(idx + 1) % VIEWS.length];
@@ -74,7 +101,7 @@ export function App({ db, initialFilterCwd, initialQuery, onSelect, onCancel }: 
     if (input === "3") { setView("projects"); return; }
     if (input === "?") { setView("help");     return; }
 
-    // Sessions-only handlers
+    // ── SESSIONS-VIEW ONLY ────────────────────────────────────────────
     if (view !== "sessions") return;
 
     if (key.return) {
@@ -82,20 +109,18 @@ export function App({ db, initialFilterCwd, initialQuery, onSelect, onCancel }: 
       if (row) { onSelect(row); exit(); }
       return;
     }
-    if (key.upArrow || input === "k") {
-      setSelected(s => Math.max(0, s - 1)); return;
-    }
-    if (key.downArrow || input === "j") {
-      setSelected(s => Math.max(0, Math.min(rows.length - 1, s + 1))); return;
-    }
-    if (key.pageUp || (key.ctrl && input === "u")) {
-      setSelected(s => Math.max(0, s - 10)); return;
-    }
-    if (key.pageDown || (key.ctrl && input === "d")) {
-      setSelected(s => Math.max(0, Math.min(rows.length - 1, s + 10))); return;
-    }
+    if (key.upArrow || input === "k") { setSelected(s => Math.max(0, s - 1)); return; }
+    if (key.downArrow || input === "j") { setSelected(s => Math.max(0, Math.min(rows.length - 1, s + 1))); return; }
+    if (key.pageUp || (key.ctrl && input === "u")) { setSelected(s => Math.max(0, s - 10)); return; }
+    if (key.pageDown || (key.ctrl && input === "d")) { setSelected(s => Math.max(0, Math.min(rows.length - 1, s + 10))); return; }
     if (input === "g") { setSelected(0); return; }
     if (input === "G") { setSelected(Math.max(0, rows.length - 1)); return; }
+
+    if (input === "r") {
+      const row = rows[selected];
+      if (row) setEditing(row.custom_name ?? "");
+      return;
+    }
     if (input === "f") {
       const row = rows[selected];
       if (row) {
@@ -113,11 +138,7 @@ export function App({ db, initialFilterCwd, initialQuery, onSelect, onCancel }: 
       }
       return;
     }
-    if (key.backspace || key.delete) {
-      setQuery(q => q.slice(0, -1));
-      setSelected(0);
-      return;
-    }
+    if (key.backspace || key.delete) { setQuery(q => q.slice(0, -1)); setSelected(0); return; }
     if (input && !key.ctrl && !key.meta && input.length === 1 && input >= " ") {
       setQuery(q => q + input);
       setSelected(0);
@@ -125,8 +146,7 @@ export function App({ db, initialFilterCwd, initialQuery, onSelect, onCancel }: 
     }
   });
 
-  // Layout for the sessions view
-  const fixedH = 3 + 1 + 1 + 1; // header + tabs + search + footer
+  const fixedH = 3 + 1 + 1 + 1; // header + tabs + search/rename + footer
   const listHeight = Math.max(6, Math.floor((termHeight - fixedH) * 0.55));
   const previewHeight = Math.max(4, termHeight - fixedH - listHeight - 1);
   const currentRow = rows[selected] ?? null;
@@ -135,7 +155,6 @@ export function App({ db, initialFilterCwd, initialQuery, onSelect, onCancel }: 
   return (
     <Box flexDirection="column" width={termWidth}>
 
-      {/* HEADER */}
       <Box borderStyle="round" borderColor={theme.accent} paddingX={2} flexDirection="row">
         <Text color={theme.accent} bold>{`${GLYPHS.diamond}  claude-manager`}</Text>
         <Text color={theme.fgDim}>{"   session resumer"}</Text>
@@ -151,75 +170,52 @@ export function App({ db, initialFilterCwd, initialQuery, onSelect, onCancel }: 
         <Text color={theme.accentDeep}>v0.1.0</Text>
       </Box>
 
-      {/* TAB BAR */}
       <TabBar view={view} />
 
-      {/* BODY */}
       {view === "sessions" && (
         <>
-          <SearchBar query={query} filterCwd={filterCwd} total={allRows.length} shown={rows.length} />
-          <Box
-            borderStyle="round"
-            borderColor={theme.borderDim}
-            flexDirection="column"
-            paddingX={1}
-            height={listHeight}
-          >
+          {editing !== null ? (
+            <RenameBar value={editing} target={currentRow} />
+          ) : (
+            <SearchBar query={query} filterCwd={filterCwd} total={allRows.length} shown={rows.length} />
+          )}
+          <Box borderStyle="round" borderColor={theme.borderDim} flexDirection="column" paddingX={1} height={listHeight}>
             <List rows={rows} selectedIndex={selected} height={listHeight - 2} width={termWidth - 4} />
           </Box>
-          <Box
-            borderStyle="round"
-            borderColor={theme.borderDim}
-            flexDirection="column"
-            paddingX={1}
-            height={previewHeight}
-          >
+          <Box borderStyle="round" borderColor={theme.borderDim} flexDirection="column" paddingX={1} height={previewHeight}>
             <Preview row={currentRow} height={previewHeight - 3} width={termWidth - 4} />
           </Box>
         </>
       )}
 
       {view === "stats" && (
-        <Box
-          borderStyle="round"
-          borderColor={theme.borderDim}
-          flexDirection="column"
-          height={bodyHeight}
-        >
+        <Box borderStyle="round" borderColor={theme.borderDim} flexDirection="column" height={bodyHeight}>
           <Stats db={db} width={termWidth - 4} height={bodyHeight - 2} />
         </Box>
       )}
-
       {view === "projects" && (
-        <Box
-          borderStyle="round"
-          borderColor={theme.borderDim}
-          flexDirection="column"
-          height={bodyHeight}
-        >
+        <Box borderStyle="round" borderColor={theme.borderDim} flexDirection="column" height={bodyHeight}>
           <Projects db={db} width={termWidth - 4} height={bodyHeight - 2} />
         </Box>
       )}
-
       {view === "help" && (
-        <Box
-          borderStyle="round"
-          borderColor={theme.borderDim}
-          flexDirection="column"
-          height={bodyHeight}
-        >
+        <Box borderStyle="round" borderColor={theme.borderDim} flexDirection="column" height={bodyHeight}>
           <Help width={termWidth - 4} height={bodyHeight - 2} />
         </Box>
       )}
 
-      {/* FOOTER */}
       <Box paddingX={2}>
-        {view === "sessions" ? (
+        {editing !== null ? (
+          <>
+            <KeyHint k="↵" label="save" />
+            <KeyHint k="Esc" label="cancel" />
+          </>
+        ) : view === "sessions" ? (
           <>
             <KeyHint k="↵" label="resume" />
+            <KeyHint k="r" label="rename" />
             <KeyHint k="f" label="favorite" />
             <KeyHint k="d" label="delete" />
-            <KeyHint k="/" label="search" />
             <KeyHint k="Tab" label="view" />
             <KeyHint k="?" label="help" />
             <KeyHint k="q" label="quit" />
@@ -251,6 +247,19 @@ function TabBar({ view }: { view: View }) {
           </Box>
         );
       })}
+    </Box>
+  );
+}
+
+function RenameBar({ value, target }: { value: string; target: SessionRow | null }) {
+  const targetLabel = target?.custom_name ?? target?.first_prompt ?? "(untitled)";
+  return (
+    <Box paddingX={2}>
+      <Text color={theme.accent} bold>{"rename  "}</Text>
+      <Text color={theme.fgDim}>{targetLabel.slice(0, 30)}</Text>
+      <Text color={theme.fgDim}>{"  →  "}</Text>
+      <Text color={theme.fg} bold>{value}</Text>
+      <Text color={theme.accent}>{GLYPHS.cursor}</Text>
     </Box>
   );
 }

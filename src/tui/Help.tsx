@@ -18,6 +18,7 @@ const GROUPS: Group[] = [
     title: "actions",
     rows: [
       ["↵ Enter", "resume selected session"],
+      ["r", "rename — set custom_name (used by cm <name>)"],
       ["f", "toggle favorite"],
       ["d", "delete from registry"],
     ],
@@ -35,7 +36,8 @@ const GROUPS: Group[] = [
     rows: [
       ["cm last", "resume most-recent, no TUI"],
       ["cm here", "TUI filtered to $(pwd)"],
-      ["cm <fuzzy>", "auto-resume on unique match"],
+      ["cm <name>", "exact custom_name match → resume immediately"],
+      ["cm <fuzzy>", "closest match → confirm (↵ resume / t TUI / n cancel)"],
       ["claude-manager doctor", "health check"],
       ["claude-manager scan", "rescan ~/.claude/projects"],
       ["claude-manager uninstall", "remove hook + settings patch"],
