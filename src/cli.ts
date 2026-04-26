@@ -1,4 +1,13 @@
 #!/usr/bin/env bun
+// IMPORTANT: must be set BEFORE any dynamic import that pulls in chalk
+// (transitively via ink/react). The cm() shell wrapper captures our stdout
+// via $(...), so chalk's auto-detect sees a non-TTY pipe and falls back to
+// color level 0 — emitting no ANSI codes at all. The result: no coral
+// selection bar, no dim text, no accent borders. Forcing truecolor here
+// works because cli.ts's static imports below don't touch chalk; ink/react
+// only load via dynamic import() inside the subcommand dispatch.
+if (!process.env.FORCE_COLOR) process.env.FORCE_COLOR = "3";
+
 import { paths } from "./platform/paths.ts";
 import { openDb } from "./registry/db.ts";
 import { drain } from "./registry/drain.ts";
