@@ -4,8 +4,20 @@ import { theme, GLYPHS } from "./theme.ts";
 import { List } from "./List.tsx";
 import { SearchBar } from "./SearchBar.tsx";
 import { Preview } from "./Preview.tsx";
+import { Stats } from "./Stats.tsx";
+import { Projects } from "./Projects.tsx";
+import { Help } from "./Help.tsx";
 import type { Database } from "bun:sqlite";
 import { listSessions, type SessionRow } from "../registry/search.ts";
+
+type View = "sessions" | "stats" | "projects" | "help";
+const VIEWS: View[] = ["sessions", "stats", "projects", "help"];
+const VIEW_LABEL: Record<View, string> = {
+  sessions: "sessions",
+  stats:    "overview",
+  projects: "projects",
+  help:     "help",
+};
 
 interface Props {
   db: Database;
@@ -21,6 +33,7 @@ export function App({ db, initialFilterCwd, initialQuery, onSelect, onCancel }: 
   const termHeight = stdout?.rows ?? 30;
   const termWidth = stdout?.columns ?? 100;
 
+  const [view, setView] = useState<View>("sessions");
   const [query, setQuery] = useState(initialQuery);
   const [filterCwd] = useState<string | null>(initialFilterCwd);
   const [selected, setSelected] = useState(0);
@@ -43,11 +56,27 @@ export function App({ db, initialFilterCwd, initialQuery, onSelect, onCancel }: 
   );
 
   useInput((input, key) => {
+    // Global: quit
     if (key.escape || (key.ctrl && input === "c") || input === "q") {
       onCancel();
       exit();
       return;
     }
+    // Global: cycle view
+    if (key.tab) {
+      const idx = VIEWS.indexOf(view);
+      const next = key.shift ? VIEWS[(idx - 1 + VIEWS.length) % VIEWS.length] : VIEWS[(idx + 1) % VIEWS.length];
+      setView(next);
+      return;
+    }
+    if (input === "1") { setView("sessions"); return; }
+    if (input === "2") { setView("stats");    return; }
+    if (input === "3") { setView("projects"); return; }
+    if (input === "?") { setView("help");     return; }
+
+    // Sessions-only handlers
+    if (view !== "sessions") return;
+
     if (key.return) {
       const row = rows[selected];
       if (row) { onSelect(row); exit(); }
@@ -96,59 +125,132 @@ export function App({ db, initialFilterCwd, initialQuery, onSelect, onCancel }: 
     }
   });
 
-  // Layout math: header (3) + search (1) + list (~55%) + preview (rest) + footer (1)
-  const fixedH = 3 + 1 + 1;
+  // Layout for the sessions view
+  const fixedH = 3 + 1 + 1 + 1; // header + tabs + search + footer
   const listHeight = Math.max(6, Math.floor((termHeight - fixedH) * 0.55));
   const previewHeight = Math.max(4, termHeight - fixedH - listHeight - 1);
   const currentRow = rows[selected] ?? null;
+  const bodyHeight = termHeight - fixedH;
 
   return (
     <Box flexDirection="column" width={termWidth}>
 
-      {/* HEADER — coral box, brand mark, version, count */}
+      {/* HEADER */}
       <Box borderStyle="round" borderColor={theme.accent} paddingX={2} flexDirection="row">
         <Text color={theme.accent} bold>{`${GLYPHS.diamond}  claude-manager`}</Text>
         <Text color={theme.fgDim}>{"   session resumer"}</Text>
         <Box flexGrow={1} />
-        <Text color={theme.fgMuted}>{`${rows.length}`}</Text>
-        <Text color={theme.fgDim}>{` of ${allRows.length} sessions   `}</Text>
+        {view === "sessions" ? (
+          <>
+            <Text color={theme.fgMuted}>{`${rows.length}`}</Text>
+            <Text color={theme.fgDim}>{` of ${allRows.length} sessions   `}</Text>
+          </>
+        ) : (
+          <Text color={theme.fgDim}>{`${VIEW_LABEL[view]} view   `}</Text>
+        )}
         <Text color={theme.accentDeep}>v0.1.0</Text>
       </Box>
 
-      {/* SEARCH BAR */}
-      <SearchBar query={query} filterCwd={filterCwd} total={allRows.length} shown={rows.length} />
+      {/* TAB BAR */}
+      <TabBar view={view} />
 
-      {/* LIST PANE */}
-      <Box
-        borderStyle="round"
-        borderColor={theme.borderDim}
-        flexDirection="column"
-        paddingX={1}
-        height={listHeight}
-      >
-        <List rows={rows} selectedIndex={selected} height={listHeight - 2} width={termWidth - 4} />
-      </Box>
+      {/* BODY */}
+      {view === "sessions" && (
+        <>
+          <SearchBar query={query} filterCwd={filterCwd} total={allRows.length} shown={rows.length} />
+          <Box
+            borderStyle="round"
+            borderColor={theme.borderDim}
+            flexDirection="column"
+            paddingX={1}
+            height={listHeight}
+          >
+            <List rows={rows} selectedIndex={selected} height={listHeight - 2} width={termWidth - 4} />
+          </Box>
+          <Box
+            borderStyle="round"
+            borderColor={theme.borderDim}
+            flexDirection="column"
+            paddingX={1}
+            height={previewHeight}
+          >
+            <Preview row={currentRow} height={previewHeight - 3} width={termWidth - 4} />
+          </Box>
+        </>
+      )}
 
-      {/* PREVIEW PANE */}
-      <Box
-        borderStyle="round"
-        borderColor={theme.borderDim}
-        flexDirection="column"
-        paddingX={1}
-        height={previewHeight}
-      >
-        <Preview row={currentRow} height={previewHeight - 3} width={termWidth - 4} />
-      </Box>
+      {view === "stats" && (
+        <Box
+          borderStyle="round"
+          borderColor={theme.borderDim}
+          flexDirection="column"
+          height={bodyHeight}
+        >
+          <Stats db={db} width={termWidth - 4} height={bodyHeight - 2} />
+        </Box>
+      )}
 
-      {/* FOOTER — coral keys, dim labels */}
+      {view === "projects" && (
+        <Box
+          borderStyle="round"
+          borderColor={theme.borderDim}
+          flexDirection="column"
+          height={bodyHeight}
+        >
+          <Projects db={db} width={termWidth - 4} height={bodyHeight - 2} />
+        </Box>
+      )}
+
+      {view === "help" && (
+        <Box
+          borderStyle="round"
+          borderColor={theme.borderDim}
+          flexDirection="column"
+          height={bodyHeight}
+        >
+          <Help width={termWidth - 4} height={bodyHeight - 2} />
+        </Box>
+      )}
+
+      {/* FOOTER */}
       <Box paddingX={2}>
-        <KeyHint k="↵" label="resume" />
-        <KeyHint k="f" label="favorite" />
-        <KeyHint k="d" label="delete" />
-        <KeyHint k="g/G" label="top/bottom" />
-        <KeyHint k="/" label="search" />
-        <KeyHint k="q" label="quit" />
+        {view === "sessions" ? (
+          <>
+            <KeyHint k="↵" label="resume" />
+            <KeyHint k="f" label="favorite" />
+            <KeyHint k="d" label="delete" />
+            <KeyHint k="/" label="search" />
+            <KeyHint k="Tab" label="view" />
+            <KeyHint k="?" label="help" />
+            <KeyHint k="q" label="quit" />
+          </>
+        ) : (
+          <>
+            <KeyHint k="Tab" label="next view" />
+            <KeyHint k="1/2/3" label="jump" />
+            <KeyHint k="?" label="help" />
+            <KeyHint k="q" label="quit" />
+          </>
+        )}
       </Box>
+    </Box>
+  );
+}
+
+function TabBar({ view }: { view: View }) {
+  return (
+    <Box paddingX={2}>
+      {VIEWS.map((v, i) => {
+        const active = v === view;
+        const num = i + 1;
+        return (
+          <Box key={v} marginRight={3}>
+            <Text color={active ? theme.fgSelected : theme.fgDim} backgroundColor={active ? theme.accent : undefined} bold={active}>
+              {` ${num}  ${VIEW_LABEL[v]} `}
+            </Text>
+          </Box>
+        );
+      })}
     </Box>
   );
 }
