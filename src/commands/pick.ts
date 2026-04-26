@@ -1,6 +1,7 @@
 import React from "react";
 import { render } from "ink";
-import { openSync, createWriteStream, createReadStream } from "node:fs";
+import { openSync } from "node:fs";
+import { ReadStream as TtyReadStream, WriteStream as TtyWriteStream } from "node:tty";
 import { openDb } from "../registry/db.ts";
 import { App } from "../tui/App.tsx";
 import type { SessionRow } from "../registry/search.ts";
@@ -35,10 +36,21 @@ export function run(args: string[]): void {
 
   const db = openDb();
 
-  const ttyOutFd = openSync("/dev/tty", "w");
-  const ttyInFd  = openSync("/dev/tty", "r");
-  const ttyOut = createWriteStream("", { fd: ttyOutFd }) as any;
-  const ttyIn  = createReadStream("",  { fd: ttyInFd  }) as any;
+  // The shell wrapper captures our stdout via $(...), so we cannot let Ink
+  // render to process.stdout. Open /dev/tty directly and wrap the FDs as
+  // tty.ReadStream / tty.WriteStream — these expose setRawMode and isTTY,
+  // which Ink requires for keyboard input. fs.createReadStream returns a
+  // plain file stream and Ink errors with "Raw mode is not supported".
+  let ttyIn: TtyReadStream;
+  let ttyOut: TtyWriteStream;
+  try {
+    ttyIn  = new TtyReadStream(openSync("/dev/tty", "r"));
+    ttyOut = new TtyWriteStream(openSync("/dev/tty", "w"));
+  } catch {
+    console.error("claude-manager: no controlling terminal — run `cm` interactively from a shell.");
+    db.close();
+    process.exit(1);
+  }
 
   let chosen: SessionRow | null = null;
 
@@ -50,7 +62,7 @@ export function run(args: string[]): void {
       onSelect: (row) => { chosen = row; },
       onCancel: () => { chosen = null; },
     }),
-    { stdout: ttyOut, stdin: ttyIn, exitOnCtrlC: false }
+    { stdout: ttyOut as any, stdin: ttyIn as any, exitOnCtrlC: false }
   );
 
   app.waitUntilExit().then(() => {
