@@ -20,7 +20,7 @@ function save(path: string, s: Settings): void {
 }
 
 function entryMatches(entry: HookEntry, hookPath: string): boolean {
-  return entry.hooks.some(h => h.command.includes(hookPath));
+  return entry.hooks?.some(h => h.command?.includes(hookPath) ?? false) ?? false;
 }
 
 export function patchSettings(path: string, hookPath: string): void {

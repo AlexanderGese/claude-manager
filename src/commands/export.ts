@@ -5,6 +5,10 @@ import { paths } from "../platform/paths.ts";
 export function run(args: string[]): void {
   const id = args[0];
   if (!id) { console.error("usage: claude-manager export <session-id>"); process.exit(2); }
+  if (id.includes("/") || id.includes("..")) {
+    console.error("invalid session id");
+    process.exit(2);
+  }
   if (!existsSync(paths.claudeProjects)) {
     console.error(`projects directory not found: ${paths.claudeProjects}`);
     process.exit(1);

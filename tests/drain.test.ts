@@ -104,3 +104,36 @@ test("drain stop event for unknown session_id is silently no-op", () => {
   expect(count?.c).toBe(0);
   expect(readFileSync(queue, "utf8")).toBe("");
 });
+
+test("drain stop event populates first_prompt when none was recorded at start", () => {
+  // Start: hook didn't have the prompt yet (it fires before the user types)
+  db.prepare(
+    "INSERT INTO sessions (session_id, cwd, launch_argv_json, first_prompt, created_at, last_activity_at) VALUES (?,?,?,?,?,?)"
+  ).run("live", "/p", "[\"claude\"]", null, 1700000000, 1700000000);
+
+  writeFileSync(queue, JSON.stringify({
+    event: "stop", ts: 1700000500, session_id: "live",
+    message_count: 4, token_count: 200,
+    first_prompt: "fix the bug in auth.ts",
+  }) + "\n");
+  drain(db, queue);
+
+  const row = db.query<any, []>("SELECT first_prompt FROM sessions WHERE session_id='live'").get();
+  expect(row.first_prompt).toBe("fix the bug in auth.ts");
+});
+
+test("drain stop event preserves existing first_prompt (does not overwrite)", () => {
+  db.prepare(
+    "INSERT INTO sessions (session_id, cwd, launch_argv_json, first_prompt, created_at, last_activity_at) VALUES (?,?,?,?,?,?)"
+  ).run("kept", "/p", "[\"claude\"]", "original", 1700000000, 1700000000);
+
+  writeFileSync(queue, JSON.stringify({
+    event: "stop", ts: 1700000500, session_id: "kept",
+    message_count: 1, token_count: 1,
+    first_prompt: "different",
+  }) + "\n");
+  drain(db, queue);
+
+  const row = db.query<any, []>("SELECT first_prompt FROM sessions WHERE session_id='kept'").get();
+  expect(row.first_prompt).toBe("original");
+});

@@ -19,6 +19,7 @@ interface StopEvent {
   session_id: string;
   message_count: number;
   token_count: number;
+  first_prompt?: string | null;
 }
 
 type Event = StartEvent | StopEvent;
@@ -36,7 +37,11 @@ export function drain(db: Database, queuePath: string): void {
   `);
   const updateStop = db.prepare(`
     UPDATE sessions
-       SET message_count = ?, token_count = ?, last_activity_at = ?, status = 'done'
+       SET message_count = ?,
+           token_count = ?,
+           last_activity_at = ?,
+           status = 'done',
+           first_prompt = COALESCE(first_prompt, ?)
      WHERE session_id = ?
   `);
 
@@ -59,7 +64,13 @@ export function drain(db: Database, queuePath: string): void {
           evt.origin_host ?? null,
         );
       } else if (evt.event === "stop") {
-        updateStop.run(evt.message_count, evt.token_count, evt.ts, evt.session_id);
+        updateStop.run(
+          evt.message_count,
+          evt.token_count,
+          evt.ts,
+          evt.first_prompt ?? null,
+          evt.session_id,
+        );
       }
     }
   })();

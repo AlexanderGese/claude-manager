@@ -26,13 +26,20 @@ export function App({ db, initialFilterCwd, initialQuery, onSelect, onCancel }: 
   const [selected, setSelected] = useState(0);
   const [tick, force] = useState(0);
 
+  const hideMissing = useMemo(() => {
+    const v = db.query<{ value: string }, []>(
+      "SELECT value FROM settings WHERE key='hide_missing_dirs'"
+    ).get()?.value;
+    return v === "1";
+  }, [db]);
+
   const allRows = useMemo(
-    () => listSessions(db, { query: "", filterCwd: null, includeMissing: true }),
-    [db, tick]
+    () => listSessions(db, { query: "", filterCwd: null, includeMissing: !hideMissing }),
+    [db, tick, hideMissing]
   );
   const rows = useMemo(
-    () => listSessions(db, { query, filterCwd, includeMissing: true }),
-    [db, query, filterCwd, tick]
+    () => listSessions(db, { query, filterCwd, includeMissing: !hideMissing }),
+    [db, query, filterCwd, tick, hideMissing]
   );
 
   useInput((input, key) => {
