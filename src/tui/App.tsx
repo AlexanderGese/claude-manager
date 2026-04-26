@@ -110,7 +110,7 @@ export function App({ db, initialFilterCwd, initialQuery, onSelect, onCancel }: 
         <SearchBar query={query} filterCwd={filterCwd} total={allRows.length} shown={rows.length} />
       </Box>
       <Box borderStyle="round" borderColor={theme.borderDim} flexDirection="column" paddingX={1} height={listHeight}>
-        <List rows={rows} selectedIndex={selected} height={listHeight - 2} />
+        <List rows={rows} selectedIndex={selected} height={listHeight - 2} width={termWidth - 4} />
       </Box>
       <Box borderStyle="round" borderColor={theme.borderDim} flexDirection="column" paddingX={1} height={previewHeight}>
         <Preview row={currentRow} height={previewHeight - 3} />

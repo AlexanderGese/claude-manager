@@ -7,9 +7,10 @@ interface Props {
   rows: SessionRow[];
   selectedIndex: number;
   height: number;
+  width: number;
 }
 
-export function List({ rows, selectedIndex, height }: Props) {
+export function List({ rows, selectedIndex, height, width }: Props) {
   const windowSize = Math.max(1, height - 2);
   const start = Math.max(0, Math.min(selectedIndex - Math.floor(windowSize / 2), rows.length - windowSize));
   const slice = rows.slice(start, start + windowSize);
@@ -29,23 +30,28 @@ export function List({ rows, selectedIndex, height }: Props) {
         const when = relativeTime(row.last_activity_at);
         const fav = row.is_favorite ? ICONS.fav : ICONS.unfav;
 
+        // Build the visible row content, then pad to full width so the
+        // selected-row background paints all the way across.
+        const left = ` ${fav} ${title.padEnd(32).slice(0, 32)}  `;
+        const right = `${cwdShort.padEnd(34).slice(0, 34)}${when}`;
+        const fullRow = (left + right).padEnd(Math.max(1, width));
+
         return (
           <React.Fragment key={row.session_id}>
             <Box>
-              <Text
-                backgroundColor={isSel ? theme.bgSelected : undefined}
-                color={isSel ? theme.fgSelected : theme.fg}
-              >
-                {` ${fav} `}
-                {title.padEnd(32).slice(0, 32)}
-                {"  "}
-                <Text color={isSel ? theme.fgSelected : theme.fgDim}>
-                  {cwdShort.padEnd(34).slice(0, 34)}{when}
+              {isSel ? (
+                <Text backgroundColor={theme.bgSelected} color={theme.fgSelected} bold>
+                  {fullRow}
                 </Text>
-              </Text>
+              ) : (
+                <Text>
+                  <Text color={theme.fg}>{left}</Text>
+                  <Text color={theme.fgDim}>{right.padEnd(Math.max(0, width - left.length))}</Text>
+                </Text>
+              )}
             </Box>
             {i === lastFavIdx && lastFavIdx < slice.length - 1 && (
-              <Text color={theme.fgDim}>{" " + ICONS.separator.repeat(70)}</Text>
+              <Text color={theme.fgDim}>{ICONS.separator.repeat(Math.max(1, width))}</Text>
             )}
           </React.Fragment>
         );
