@@ -1,0 +1,3 @@
+{"sessionId":"sess-100","message":{"role":"user","content":"backfill me please","usage":{"input_tokens":3,"output_tokens":0}},"timestamp":"2026-01-01T10:00:00Z"}
+{"sessionId":"sess-100","message":{"role":"assistant","content":"sure","usage":{"input_tokens":0,"output_tokens":2}},"timestamp":"2026-01-01T10:00:05Z"}
+{"sessionId":"sess-100","message":{"role":"user","content":"and again","usage":{"input_tokens":2,"output_tokens":0}},"timestamp":"2026-01-01T10:01:00Z"}
