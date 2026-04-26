@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { Box, Text, useInput, useApp, useStdout } from "ink";
-import { theme } from "./theme.ts";
+import { theme, GLYPHS } from "./theme.ts";
 import { List } from "./List.tsx";
 import { SearchBar } from "./SearchBar.tsx";
 import { Preview } from "./Preview.tsx";
@@ -96,30 +96,68 @@ export function App({ db, initialFilterCwd, initialQuery, onSelect, onCancel }: 
     }
   });
 
-  const listHeight = Math.max(5, Math.floor(termHeight * 0.55));
-  const previewHeight = Math.max(3, termHeight - listHeight - 6);
+  // Layout math: header (3) + search (1) + list (~55%) + preview (rest) + footer (1)
+  const fixedH = 3 + 1 + 1;
+  const listHeight = Math.max(6, Math.floor((termHeight - fixedH) * 0.55));
+  const previewHeight = Math.max(4, termHeight - fixedH - listHeight - 1);
   const currentRow = rows[selected] ?? null;
 
   return (
     <Box flexDirection="column" width={termWidth}>
-      <Box borderStyle="round" borderColor={theme.border} paddingX={1}>
-        <Text color={theme.accent} bold>Claude Manager</Text>
-        <Text color={theme.fgDim}>{`   ${rows.length} sessions`}</Text>
+
+      {/* HEADER — coral box, brand mark, version, count */}
+      <Box borderStyle="round" borderColor={theme.accent} paddingX={2} flexDirection="row">
+        <Text color={theme.accent} bold>{`${GLYPHS.diamond}  claude-manager`}</Text>
+        <Text color={theme.fgDim}>{"   session resumer"}</Text>
+        <Box flexGrow={1} />
+        <Text color={theme.fgMuted}>{`${rows.length}`}</Text>
+        <Text color={theme.fgDim}>{` of ${allRows.length} sessions   `}</Text>
+        <Text color={theme.accentDeep}>v0.1.0</Text>
       </Box>
-      <Box paddingX={1}>
-        <SearchBar query={query} filterCwd={filterCwd} total={allRows.length} shown={rows.length} />
-      </Box>
-      <Box borderStyle="round" borderColor={theme.borderDim} flexDirection="column" paddingX={1} height={listHeight}>
+
+      {/* SEARCH BAR */}
+      <SearchBar query={query} filterCwd={filterCwd} total={allRows.length} shown={rows.length} />
+
+      {/* LIST PANE */}
+      <Box
+        borderStyle="round"
+        borderColor={theme.borderDim}
+        flexDirection="column"
+        paddingX={1}
+        height={listHeight}
+      >
         <List rows={rows} selectedIndex={selected} height={listHeight - 2} width={termWidth - 4} />
       </Box>
-      <Box borderStyle="round" borderColor={theme.borderDim} flexDirection="column" paddingX={1} height={previewHeight}>
-        <Preview row={currentRow} height={previewHeight - 3} />
+
+      {/* PREVIEW PANE */}
+      <Box
+        borderStyle="round"
+        borderColor={theme.borderDim}
+        flexDirection="column"
+        paddingX={1}
+        height={previewHeight}
+      >
+        <Preview row={currentRow} height={previewHeight - 3} width={termWidth - 4} />
       </Box>
-      <Box paddingX={1}>
-        <Text color={theme.fgDim}>
-          enter resume   f fav   d delete   / type to search   q quit
-        </Text>
+
+      {/* FOOTER — coral keys, dim labels */}
+      <Box paddingX={2}>
+        <KeyHint k="↵" label="resume" />
+        <KeyHint k="f" label="favorite" />
+        <KeyHint k="d" label="delete" />
+        <KeyHint k="g/G" label="top/bottom" />
+        <KeyHint k="/" label="search" />
+        <KeyHint k="q" label="quit" />
       </Box>
+    </Box>
+  );
+}
+
+function KeyHint({ k, label }: { k: string; label: string }) {
+  return (
+    <Box marginRight={3}>
+      <Text color={theme.accent} bold>{k}</Text>
+      <Text color={theme.fgDim}>{` ${label}`}</Text>
     </Box>
   );
 }
