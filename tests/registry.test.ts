@@ -66,3 +66,12 @@ test("fuzzyMatch ranks better matches higher", () => {
   expect(fuzzyMatch("ATH", "auth"))
     .toBeGreaterThan(fuzzyMatch("ATH", "alphabet"));
 });
+
+test("listSessions filters out sessions with missing cwds when includeMissing=false", () => {
+  seed(db, [
+    { id: "exists",  cwd: tmp,     first_prompt: "real",  ts: 1 },
+    { id: "ghost",   cwd: "/no/such/dir/abc", first_prompt: "gone", ts: 2 },
+  ]);
+  const ids = listSessions(db, { query: "", filterCwd: null, includeMissing: false }).map(r => r.session_id);
+  expect(ids).toEqual(["exists"]);
+});

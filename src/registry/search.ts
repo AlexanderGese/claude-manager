@@ -1,4 +1,5 @@
 import type { Database } from "bun:sqlite";
+import { existsSync } from "node:fs";
 
 export interface SessionRow {
   session_id: string;
@@ -17,6 +18,8 @@ export interface SessionRow {
   status: string | null;
   created_at: number;
   last_activity_at: number;
+  origin_host: string | null;
+  schema_version: number;
 }
 
 export interface ListOpts {
@@ -27,13 +30,16 @@ export interface ListOpts {
 
 export function listSessions(db: Database, opts: ListOpts): SessionRow[] {
   let sql = "SELECT * FROM sessions WHERE is_archived = 0";
-  const params: any[] = [];
+  const params: string[] = [];
   if (opts.filterCwd) {
     sql += " AND cwd = ?";
     params.push(opts.filterCwd);
   }
   sql += " ORDER BY is_favorite DESC, last_activity_at DESC";
-  const rows = db.query<SessionRow, any[]>(sql).all(...params);
+  let rows = db.query<SessionRow, string[]>(sql).all(...params);
+  if (!opts.includeMissing) {
+    rows = rows.filter(r => existsSync(r.cwd));
+  }
   if (opts.query) {
     return rows
       .map(r => ({ r, score: fuzzyMatch(opts.query, displayText(r)) }))

@@ -93,3 +93,14 @@ test("drain on missing queue file is no-op", () => {
   const count = db.query<{ c: number }, []>("SELECT COUNT(*) as c FROM sessions").get();
   expect(count?.c).toBe(0);
 });
+
+test("drain stop event for unknown session_id is silently no-op", () => {
+  writeFileSync(queue, JSON.stringify({
+    event: "stop", ts: 1700000500, session_id: "ghost",
+    message_count: 9, token_count: 99,
+  }) + "\n");
+  drain(db, queue);
+  const count = db.query<{ c: number }, []>("SELECT COUNT(*) as c FROM sessions").get();
+  expect(count?.c).toBe(0);
+  expect(readFileSync(queue, "utf8")).toBe("");
+});
