@@ -11,7 +11,7 @@ A global session manager + resumer for [Claude Code](https://claude.com/claude-c
 
 ╭──────────────────────────────────────────────────────────────────────────────────╮
 │  ── ★ favorites ────────────────────────────────────────────────────────────     │
-│ ▌▌  *  ts   claude-manager design          ~/Desktop/claude-manager   2h ago     │
+│ ▌▌  *  ts   claude-manager design          ~/projects/claude-manager  2h ago     │
 │  ── today ───────────────────────────────────────────────────────────────────    │
 │        ts   refactor auth middleware       ~/work/api                  3h ago    │
 │        py   debug failing migration        ~/work/db                  17m ago    │
@@ -19,7 +19,7 @@ A global session manager + resumer for [Claude Code](https://claude.com/claude-c
 │        rs   crab shell skeleton            ~/code/crab                 1d ago    │
 ╰──────────────────────────────────────────────────────────────────────────────────╯
 ╭──────────────────────────────────────────────────────────────────────────────────╮
-│  /home/devlsx/Desktop/claude-manager   42 msgs   18.4k tok                       │
+│  ~/projects/claude-manager   42 msgs   18.4k tok                                 │
 │                                                                                  │
 │  ▎ you   refactor the auth middleware to use the new session token format        │
 │  ▎ asst  i'll start by reading the current middleware to understand…             │
@@ -145,7 +145,7 @@ $ cm auth
 
   did you mean  auth-rewrite
   query  auth
-  cwd    /home/devlsx/work/api
+  cwd    ~/work/api
 
   ↵ resume    t open TUI    n/Esc cancel
 ```
@@ -171,7 +171,7 @@ The next time you run any `cm` command, the binary drains `queue.jsonl` into `~/
 When you pick a session, the binary writes a single line on stdout:
 
 ```
-cd '/home/devlsx/work/api' && exec claude --model opus --mcp-config foo.json --resume abc-123
+cd '/home/you/work/api' && exec claude --model opus --mcp-config foo.json --resume abc-123
 ```
 
 Your shell function (`eval "$(claude-manager init zsh)"`) captures that and `eval`s it — so the **parent shell** actually `cd`s and the new `claude` process replaces the shell. Non-resume output (doctor checks, scan summary, help text) is just printed.

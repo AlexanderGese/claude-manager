@@ -1,7 +1,6 @@
 # claude-manager — Design Spec
 
 **Status:** Approved 2026-04-26
-**Owner:** alexander.gese07@gmail.com
 **Repo:** `claude-manager` (greenfield)
 
 ---
@@ -144,7 +143,7 @@ Default settings rows seeded on first launch:
 
 ### 2.E The scanner (`claude-manager scan`)
 
-Walks `~/.claude/projects/`. Each subdirectory is a sanitized cwd, e.g. `-home-devlsx-Desktop-actualprojects-claude-manager` ↔ `/home/devlsx/Desktop/actualprojects/claude-manager`. Unsanitize: replace `-` with `/`, prefix with `/` (and re-resolve any path that contains `--`).
+Walks `~/.claude/projects/`. Each subdirectory is a sanitized cwd, e.g. `-home-user-projects-claude-manager` ↔ `/home/user/projects/claude-manager`. Unsanitize: replace `-` with `/`, prefix with `/` (and re-resolve any path that contains `--`).
 
 For each `*.jsonl` file in each subdir:
 1. `session_id` = filename stem.

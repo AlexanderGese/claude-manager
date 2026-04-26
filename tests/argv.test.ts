@@ -5,8 +5,8 @@ import { join } from "node:path";
 import { unsanitizeCwd, resolveCwdCandidates, resolveBestCwd } from "../src/platform/argv.ts";
 
 test("unsanitizeCwd: simple absolute path", () => {
-  expect(unsanitizeCwd("-home-devlsx-Desktop-claude-manager"))
-    .toBe("/home/devlsx/Desktop/claude/manager");
+  expect(unsanitizeCwd("-home-user-projects-claude-manager"))
+    .toBe("/home/user/projects/claude/manager");
 });
 
 test("unsanitizeCwd: leading slash preserved", () => {

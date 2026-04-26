@@ -12,7 +12,7 @@
 
 ## Conventions
 
-- **All file paths in this plan are relative to the repo root** `/home/devlsx/Desktop/actualprojects/claude-manager` unless explicitly absolute.
+- **All file paths in this plan are relative to the repo root** `/path/to/claude-manager` unless explicitly absolute.
 - **Test runner:** `bun test` (built-in). Test files: `tests/<area>.test.ts`.
 - **Run single test file:** `bun test tests/registry.test.ts`.
 - **Run single test:** `bun test --test-name-pattern "drain inserts new session"`.
@@ -948,7 +948,7 @@ git commit -m "feat(platform): non-destructive ~/.claude/settings.json patcher"
 The two utilities here:
 
 1. `unsanitizeCwd(name)` — converts a `~/.claude/projects` directory name back to a real path.
-   Claude Code sanitizes paths by replacing `/` with `-`. So `/home/devlsx/Desktop/foo` becomes `-home-devlsx-Desktop-foo`. Best-effort reverse: if the dir name starts with `-`, treat each `-` as a `/`. (Cannot recover paths that contained literal `-` chars perfectly — return best-effort path; caller verifies via `existsSync`.)
+   Claude Code sanitizes paths by replacing `/` with `-`. So `/home/user/foo` becomes `-home-user-foo`. Best-effort reverse: if the dir name starts with `-`, treat each `-` as a `/`. (Cannot recover paths that contained literal `-` chars perfectly — return best-effort path; caller verifies via `existsSync`.)
 
 2. `readParentArgv()` — returns the argv that launched the parent process.
    - Linux: read `/proc/{ppid}/cmdline`, NUL-separated.
@@ -962,8 +962,8 @@ import { test, expect } from "bun:test";
 import { unsanitizeCwd } from "../src/platform/argv.ts";
 
 test("unsanitizeCwd: simple absolute path", () => {
-  expect(unsanitizeCwd("-home-devlsx-Desktop-claude-manager"))
-    .toBe("/home/devlsx/Desktop/claude/manager");
+  expect(unsanitizeCwd("-home-user-projects-claude-manager"))
+    .toBe("/home/user/projects/claude/manager");
 });
 
 test("unsanitizeCwd: leading slash preserved", () => {
@@ -1560,7 +1560,7 @@ import { openDb } from "../registry/db.ts";
 - [ ] **Step 2: Run scan via CLI (smoke)**
 
 Run: `bun src/cli.ts scan`
-Expected: prints `scanned: inserted N session(s) from /home/devlsx/.claude/projects` (N depends on how many real sessions exist).
+Expected: prints `scanned: inserted N session(s) from $HOME/.claude/projects` (N depends on how many real sessions exist).
 
 - [ ] **Step 3: Re-run tests to confirm nothing broke**
 
