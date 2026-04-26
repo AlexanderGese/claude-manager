@@ -4,7 +4,8 @@
   "description": "Global session manager + resumer for Claude Code",
   "type": "module",
   "bin": {
-    "claude-manager": "./src/cli.ts"
+    "claude-manager": "./src/cli.ts",
+    "cm": "./src/cli.ts"
   },
   "scripts": {
     "test": "bun test",
@@ -24,6 +25,7 @@
     "typescript": "^5.5.0"
   },
   "files": [
-    "src/**/*"
+    "src/**/*",
+    "!src/**/*.test.ts"
   ]
 }
