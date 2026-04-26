@@ -48,6 +48,9 @@ export function displayText(r: SessionRow): string {
   return [r.custom_name ?? "", r.first_prompt ?? "", r.cwd].join(" ");
 }
 
+// Tiny case-insensitive fuzzy match: returns 0 if no match,
+// higher = better. Each character of `q` must appear in order in `s`;
+// closer-together hits score higher.
 export function fuzzyMatch(q: string, s: string): number {
   if (!q) return 1;
   const qq = q.toLowerCase();
