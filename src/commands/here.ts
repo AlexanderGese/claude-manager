@@ -1,4 +1,2 @@
-export function run(): void {
-  console.error("here not yet implemented (waiting on TUI in Phase 6)");
-  process.exit(1);
-}
+import { run as pickRun } from "./pick.ts";
+export function run(): void { pickRun(["--here"]); }
