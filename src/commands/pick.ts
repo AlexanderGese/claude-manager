@@ -7,7 +7,13 @@ import type { SessionRow } from "../registry/search.ts";
 
 export function buildResumeLine(row: SessionRow): string {
   const argv = JSON.parse(row.launch_argv_json) as string[];
-  const filtered = argv.filter(a => a !== "--resume" && !a.startsWith("--resume="));
+  // Strip any prior --resume flag AND its value token, plus --resume=foo form.
+  const filtered: string[] = [];
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === "--resume") { i++; continue; }
+    if (argv[i].startsWith("--resume=")) continue;
+    filtered.push(argv[i]);
+  }
   if (filtered[0] !== "claude" && !filtered[0]?.endsWith("/claude")) {
     filtered.unshift("claude");
   }

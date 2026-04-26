@@ -24,15 +24,15 @@ export function App({ db, initialFilterCwd, initialQuery, onSelect, onCancel }: 
   const [query, setQuery] = useState(initialQuery);
   const [filterCwd] = useState<string | null>(initialFilterCwd);
   const [selected, setSelected] = useState(0);
-  const [, force] = useState(0);
+  const [tick, force] = useState(0);
 
   const allRows = useMemo(
     () => listSessions(db, { query: "", filterCwd: null, includeMissing: true }),
-    [db]
+    [db, tick]
   );
   const rows = useMemo(
     () => listSessions(db, { query, filterCwd, includeMissing: true }),
-    [db, query, filterCwd]
+    [db, query, filterCwd, tick]
   );
 
   useInput((input, key) => {
@@ -50,16 +50,16 @@ export function App({ db, initialFilterCwd, initialQuery, onSelect, onCancel }: 
       setSelected(s => Math.max(0, s - 1)); return;
     }
     if (key.downArrow || input === "j") {
-      setSelected(s => Math.min(rows.length - 1, s + 1)); return;
+      setSelected(s => Math.max(0, Math.min(rows.length - 1, s + 1))); return;
     }
     if (key.pageUp || (key.ctrl && input === "u")) {
       setSelected(s => Math.max(0, s - 10)); return;
     }
     if (key.pageDown || (key.ctrl && input === "d")) {
-      setSelected(s => Math.min(rows.length - 1, s + 10)); return;
+      setSelected(s => Math.max(0, Math.min(rows.length - 1, s + 10))); return;
     }
     if (input === "g") { setSelected(0); return; }
-    if (input === "G") { setSelected(rows.length - 1); return; }
+    if (input === "G") { setSelected(Math.max(0, rows.length - 1)); return; }
     if (input === "f") {
       const row = rows[selected];
       if (row) {
