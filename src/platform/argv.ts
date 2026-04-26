@@ -8,20 +8,43 @@ export function unsanitizeCwd(name: string): string {
 }
 
 /**
- * Try the obvious unsanitized path first, then a few fallbacks that
- * preserve known dash-containing path components (e.g. "claude-manager",
- * "next.js", scoped dirs). Returns the first that exists, or the obvious one.
+ * Try every plausible unsanitization of a Claude-projects directory name back
+ * into a real filesystem path. The leading `-` always represents `/`. Each
+ * subsequent `-` is ambiguous: it could be a path separator, or a literal dash
+ * inside a directory component (e.g. `claude-manager`, `my-feature`).
+ *
+ * For up to 6 ambiguous dashes we enumerate the full power-set (≤64 candidates).
+ * For more, we fall back to the all-slashes form plus single-dash-preserved
+ * variants — combinatorial explosion isn't worth chasing for absurdly nested paths.
  */
 export function resolveCwdCandidates(name: string): string[] {
   if (!name.startsWith("-")) return [name];
-  const obvious = name.replace(/-/g, "/");
-  const candidates = new Set<string>([obvious]);
+  const ambiguous: number[] = [];
   for (let i = 1; i < name.length; i++) {
-    if (name[i] === "-") {
-      const variant =
-        name.slice(0, i).replace(/-/g, "/") + "-" +
-        name.slice(i + 1).replace(/-/g, "/");
-      candidates.add(variant);
+    if (name[i] === "-") ambiguous.push(i);
+  }
+  const n = ambiguous.length;
+  const candidates = new Set<string>();
+  if (n <= 6) {
+    for (let mask = 0; mask < (1 << n); mask++) {
+      const keep = new Set<number>();
+      for (let bit = 0; bit < n; bit++) {
+        if (mask & (1 << bit)) keep.add(ambiguous[bit]);
+      }
+      let out = "/";
+      for (let i = 1; i < name.length; i++) {
+        out += name[i] === "-" ? (keep.has(i) ? "-" : "/") : name[i];
+      }
+      candidates.add(out);
+    }
+  } else {
+    candidates.add("/" + name.slice(1).replace(/-/g, "/"));
+    for (const i of ambiguous) {
+      let out = "/";
+      for (let j = 1; j < name.length; j++) {
+        out += name[j] === "-" ? (j === i ? "-" : "/") : name[j];
+      }
+      candidates.add(out);
     }
   }
   return [...candidates];
@@ -47,6 +70,8 @@ export function readParentArgv(): string[] {
       return parts.length ? parts : ["claude"];
     }
     if (platform() === "darwin") {
+      // ps gives us a flat string; whitespace-split loses quoting context.
+      // Acceptable for v1 — quoted args (e.g. --system-prompt "x y") are rare.
       const out = execSync(`ps -o args= -p ${ppid}`, { encoding: "utf8" }).trim();
       return out ? out.split(/\s+/) : ["claude"];
     }

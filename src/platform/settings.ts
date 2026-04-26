@@ -48,5 +48,6 @@ export function unpatchSettings(path: string, hookPath: string): void {
     s.hooks[event] = arr.filter(e => !entryMatches(e, hookPath));
     if (s.hooks[event]!.length === 0) delete s.hooks[event];
   }
+  if (Object.keys(s.hooks).length === 0) delete s.hooks;
   save(path, s);
 }

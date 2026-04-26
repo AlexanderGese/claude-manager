@@ -11,11 +11,13 @@ beforeEach(() => { home = mkdtempSync(join(tmpdir(), "cm-hook-")); });
 afterEach(() => rmSync(home, { recursive: true, force: true }));
 
 function runHook(arg: "start" | "stop", input: object) {
-  execSync(`bash "${HOOK}" ${arg}`, {
+  // Hook MUST be silent on stdout AND stderr — leaks bleed into Claude Code UI.
+  const stdout = execSync(`bash "${HOOK}" ${arg}`, {
     input: JSON.stringify(input),
     env: { ...process.env, HOME: home },
     stdio: ["pipe", "pipe", "pipe"],
   });
+  expect(stdout.length).toBe(0);
 }
 
 test("start event writes one JSON line to queue.jsonl", () => {
