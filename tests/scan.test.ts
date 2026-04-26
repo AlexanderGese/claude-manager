@@ -30,6 +30,10 @@ test("scan inserts session from jsonl file", () => {
   expect(row.token_count).toBe(7);
   expect(row.is_backfilled).toBe(1);
   expect(JSON.parse(row.launch_argv_json)).toEqual(["claude"]);
+  expect(row.status).toBe("done");
+  // 2026-01-01T10:00:00Z and 2026-01-01T10:01:00Z, in epoch seconds
+  expect(row.created_at).toBe(Math.floor(Date.parse("2026-01-01T10:00:00Z") / 1000));
+  expect(row.last_activity_at).toBe(Math.floor(Date.parse("2026-01-01T10:01:00Z") / 1000));
 });
 
 test("scan is idempotent (re-running inserts 0)", () => {

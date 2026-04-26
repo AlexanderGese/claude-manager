@@ -68,7 +68,9 @@ export function scan(db: Database, projectsRoot: string): number {
     try { isDir = statSync(subPath).isDirectory(); } catch { continue; }
     if (!isDir) continue;
     const cwd = resolveBestCwd(sub);
-    for (const file of readdirSync(subPath)) {
+    let files: string[];
+    try { files = readdirSync(subPath); } catch { continue; }
+    for (const file of files) {
       if (extname(file) !== ".jsonl") continue;
       const sessionId = basename(file, ".jsonl");
       const parsed = parseTranscript(join(subPath, file));
