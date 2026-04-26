@@ -2,6 +2,8 @@ import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import { join, basename, extname } from "node:path";
 import type { Database } from "bun:sqlite";
 import { resolveBestCwd } from "../platform/argv.ts";
+import { openDb } from "../registry/db.ts";
+import { paths } from "../platform/paths.ts";
 
 interface ParsedTranscript {
   first_prompt: string | null;
@@ -84,4 +86,12 @@ export function scan(db: Database, projectsRoot: string): number {
     }
   }
   return inserted;
+}
+
+export function cli() {
+  const db = openDb();
+  try {
+    const n = scan(db, paths.claudeProjects);
+    console.log(`scanned: inserted ${n} session(s) from ${paths.claudeProjects}`);
+  } finally { db.close(); }
 }
