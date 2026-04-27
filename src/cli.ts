@@ -24,13 +24,20 @@ Usage:
   claude-manager init [bash|zsh|fish] print shell wrapper for eval
   claude-manager doctor               health check
   claude-manager prune                delete sessions older than prune_days
-  claude-manager export <id>          dump session transcript
+  claude-manager export <id> [--md]   dump session transcript (--md for markdown)
+  claude-manager grep <pattern>       search message content across all transcripts
+  claude-manager auto-name <id>       generate a name for a session via claude -p
+  claude-manager auto-name --all      name every unnamed session (max 10)
+  claude-manager theme list           list available themes
+  claude-manager theme <name>         set active theme
+  claude-manager theme reset          reset theme to coral (default)
+  claude-manager completions          print completion tokens for shell tab completion
   claude-manager uninstall            remove hook + settings.json patch
   claude-manager --help               this help
   claude-manager --version            version
 `;
 
-const VERSION = "0.1.0";
+const VERSION = "0.2.0";
 
 async function main() {
   const argv = process.argv.slice(2);
@@ -47,17 +54,21 @@ async function main() {
   }
 
   switch (cmd) {
-    case "init":      return (await import("./commands/init.ts")).run(rest);
-    case "doctor":    return (await import("./commands/doctor.ts")).run();
-    case "scan":      return (await import("./commands/scan.ts")).cli();
-    case "pick":      return (await import("./commands/pick.ts")).run(rest);
-    case "here":      return (await import("./commands/here.ts")).run();
-    case "last":      return (await import("./commands/last.ts")).run();
-    case "prune":     return (await import("./commands/prune.ts")).run();
-    case "export":    return (await import("./commands/export.ts")).run(rest);
-    case "uninstall": return (await import("./commands/uninstall.ts")).run();
-    case "":          return (await import("./commands/pick.ts")).run([]);
-    default:          return (await import("./commands/fuzzy.ts")).run([cmd, ...rest]);
+    case "init":        return (await import("./commands/init.ts")).run(rest);
+    case "doctor":      return (await import("./commands/doctor.ts")).run();
+    case "scan":        return (await import("./commands/scan.ts")).cli();
+    case "pick":        return (await import("./commands/pick.ts")).run(rest);
+    case "here":        return (await import("./commands/here.ts")).run();
+    case "last":        return (await import("./commands/last.ts")).run();
+    case "prune":       return (await import("./commands/prune.ts")).run();
+    case "export":      return (await import("./commands/export.ts")).run(rest);
+    case "grep":        return (await import("./commands/grep.ts")).run(rest);
+    case "auto-name":   return (await import("./commands/auto-name.ts")).run(rest);
+    case "theme":       return (await import("./commands/theme.ts")).run(rest);
+    case "completions": return (await import("./commands/completions.ts")).run();
+    case "uninstall":   return (await import("./commands/uninstall.ts")).run();
+    case "":            return (await import("./commands/pick.ts")).run([]);
+    default:            return (await import("./commands/fuzzy.ts")).run([cmd, ...rest]);
   }
 }
 

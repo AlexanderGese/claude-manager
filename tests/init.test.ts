@@ -21,8 +21,15 @@ test("fish variant only evals lines that look like resume commands", () => {
   expect(renderInit("fish")).toContain("'cd *&& exec *'");
 });
 
-test("zsh variant uses bash syntax (zsh-compatible)", () => {
-  expect(renderInit("zsh")).toBe(renderInit("bash"));
+test("zsh variant includes the cm() wrapper and zsh-specific completion", () => {
+  const out = renderInit("zsh");
+  // The cm() wrapper function must be present.
+  expect(out).toContain("cm()");
+  expect(out).toContain('command claude-manager "$@"');
+  expect(out).toContain('"cd "*"&& exec "*');
+  // zsh uses compctl, not complete -F.
+  expect(out).toContain("compctl -K _cm_complete cm");
+  expect(out).toContain("reply=");
 });
 
 test("fish variant uses fish syntax", () => {

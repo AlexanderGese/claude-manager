@@ -17,6 +17,25 @@ const POSIX_FN = `cm() {
 }
 `;
 
+const BASH_COMPLETE = `
+_cm_complete() {
+  local cur="\${COMP_WORDS[COMP_CWORD]}"
+  local names
+  names="$(command claude-manager completions 2>/dev/null)"
+  COMPREPLY=( $(compgen -W "$names" -- "$cur") )
+}
+complete -F _cm_complete cm
+`;
+
+const ZSH_COMPLETE = `
+_cm_complete() {
+  local names
+  names="$(command claude-manager completions 2>/dev/null)"
+  reply=( \${(f)names} )
+}
+compctl -K _cm_complete cm
+`;
+
 const FISH_FN = `function cm
   set -l out (command claude-manager $argv)
   or return $status
@@ -31,15 +50,23 @@ const FISH_FN = `function cm
 end
 `;
 
+const FISH_COMPLETE = `
+function __cm_complete
+  command claude-manager completions 2>/dev/null
+end
+complete -c cm -f -a "(__cm_complete)"
+`;
+
 export function renderInit(shell: Shell | string): string {
   switch (shell) {
     case "bash":
+      return POSIX_FN + BASH_COMPLETE;
     case "zsh":
-      return POSIX_FN;
+      return POSIX_FN + ZSH_COMPLETE;
     case "fish":
-      return FISH_FN;
+      return FISH_FN + FISH_COMPLETE;
     default:
-      return `# falling back to bash-style wrapper for shell '${shell}'\n` + POSIX_FN;
+      return `# falling back to bash-style wrapper for shell '${shell}'\n` + POSIX_FN + BASH_COMPLETE;
   }
 }
 
