@@ -1,4 +1,8 @@
-<pre>
+<p align="center">
+  <img src="assets/logo.png" alt="claude-manager" width="240"/>
+</p>
+
+<pre align="center">
    █▀▀ █▀▄▀█    claude-manager
    █   █   █    global session resumer for claude code
    ▀▀▀ ▀   ▀

@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Background: warm dark, rounded square (matches theme.fgSelected) -->
+  <rect width="1024" height="1024" rx="180" ry="180" fill="#1A1410"/>
+
+  <!-- CM block-pixel mark — 9 cols × 3 rows × 80px cells, centered horizontally -->
+  <!-- top-left at (152, 280); same shape as the ASCII art in the TUI/help/README -->
+  <g transform="translate(152 280)" fill="#D97757">
+    <!-- Row 0:  █▀▀ █▀▄▀█ -->
+    <rect x="0"   y="0"   width="80" height="80"/>
+    <rect x="80"  y="0"   width="80" height="40"/>
+    <rect x="160" y="0"   width="80" height="40"/>
+    <rect x="320" y="0"   width="80" height="80"/>
+    <rect x="400" y="0"   width="80" height="40"/>
+    <rect x="480" y="40"  width="80" height="40"/>
+    <rect x="560" y="0"   width="80" height="40"/>
+    <rect x="640" y="0"   width="80" height="80"/>
+
+    <!-- Row 1:  █   █   █ -->
+    <rect x="0"   y="80"  width="80" height="80"/>
+    <rect x="320" y="80"  width="80" height="80"/>
+    <rect x="640" y="80"  width="80" height="80"/>
+
+    <!-- Row 2:  ▀▀▀ ▀   ▀ -->
+    <rect x="0"   y="160" width="80" height="40"/>
+    <rect x="80"  y="160" width="80" height="40"/>
+    <rect x="160" y="160" width="80" height="40"/>
+    <rect x="320" y="160" width="80" height="40"/>
+    <rect x="640" y="160" width="80" height="40"/>
+  </g>
+
+  <!-- Wordmark + tagline. Use a broadly-available font so the SVG also
+       rasterizes cleanly with ImageMagick / rsvg-convert / browsers. -->
+  <text x="512" y="660"
+        text-anchor="middle"
+        font-family="DejaVu Sans, Helvetica, Arial, sans-serif"
+        font-size="68" font-weight="700"
+        fill="#D97757">claude-manager</text>
+  <text x="512" y="724"
+        text-anchor="middle"
+        font-family="DejaVu Sans, Helvetica, Arial, sans-serif"
+        font-size="34" font-weight="400"
+        fill="#A89986">global session resumer for claude code</text>
+</svg>
