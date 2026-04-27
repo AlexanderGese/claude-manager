@@ -26,6 +26,7 @@ export interface ListOpts {
   query: string;
   filterCwd: string | null;
   includeMissing: boolean;
+  tags?: string[];
 }
 
 export function listSessions(db: Database, opts: ListOpts): SessionRow[] {
@@ -39,6 +40,18 @@ export function listSessions(db: Database, opts: ListOpts): SessionRow[] {
   let rows = db.query<SessionRow, string[]>(sql).all(...params);
   if (!opts.includeMissing) {
     rows = rows.filter(r => existsSync(r.cwd));
+  }
+  // AND-filter by tags: session must have ALL requested tags.
+  if (opts.tags && opts.tags.length > 0) {
+    const n = opts.tags.length;
+    const placeholders = opts.tags.map(() => "?").join(", ");
+    const allParams: (string | number)[] = [...opts.tags, n];
+    const matching = new Set(
+      db.query<{ session_id: string }, (string | number)[]>(
+        `SELECT session_id FROM tags WHERE tag IN (${placeholders}) GROUP BY session_id HAVING COUNT(DISTINCT tag) >= ?`
+      ).all(...allParams).map(r => r.session_id)
+    );
+    rows = rows.filter(r => matching.has(r.session_id));
   }
   if (opts.query) {
     return rows
