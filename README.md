@@ -3,29 +3,29 @@
 A global session manager + resumer for [Claude Code](https://claude.com/claude-code). Run `cm` from any directory, fuzzy-search every Claude session you've ever had, hit enter — your shell `cd`s into the original project and resumes the chat with the exact original `claude` flags.
 
 ```
-╭─ ◆  claude-manager   session resumer                    21 of 24 sessions   v0.1.0 ─╮
+╭─ ◆  claude-manager   session resumer                    121 of 121 sessions  v0.2.0 ─╮
 
  1 sessions    2 overview    3 projects    4 help
 
-  >  cm-build▮                                                                  3 / 24
+  >  #bug auth▮                                                                7 / 121
 
 ╭──────────────────────────────────────────────────────────────────────────────────╮
 │  ── ★ favorites ────────────────────────────────────────────────────────────     │
-│ ▌▌  *  ts   claude-manager design          ~/projects/claude-manager  2h ago     │
+│ ▌▌  *  ts   auth-rewrite                   ~/projects/api          2h ago  #bug  │
 │  ── today ───────────────────────────────────────────────────────────────────    │
-│        ts   refactor auth middleware       ~/work/api                  3h ago    │
-│        py   debug failing migration        ~/work/db                  17m ago    │
+│ [x]    py   debug failing migration        ~/work/db              17m ago  #bug  │
+│        rs   crab shell skeleton            ~/code/crab             3h ago        │
 │  ── yesterday ───────────────────────────────────────────────────────────────    │
-│        rs   crab shell skeleton            ~/code/crab                 1d ago    │
+│        ts   refactor websocket reconnect   ~/projects/api          1d ago  #bug  │
 ╰──────────────────────────────────────────────────────────────────────────────────╯
 ╭──────────────────────────────────────────────────────────────────────────────────╮
-│  ~/projects/claude-manager   42 msgs   18.4k tok                                 │
+│  ~/projects/api    42 msgs    18.4k tok                                          │
 │                                                                                  │
 │  ▎ you   refactor the auth middleware to use the new session token format        │
 │  ▎ asst  i'll start by reading the current middleware to understand…             │
 ╰──────────────────────────────────────────────────────────────────────────────────╯
 
-  ↵ resume   r rename   f favorite   d delete   Tab view   ? help   q quit
+  ↵ resume   r rename   t tag   f favorite   d delete   Tab view   ? help   q quit
 ```
 
 ---
@@ -41,19 +41,14 @@ curl -fsSL https://bun.sh/install | bash
 Then from inside this repo:
 
 ```bash
-bun install                         # deps
+bun install
 ln -sf "$(pwd)/src/cli.ts" ~/.bun/bin/claude-manager
-bun src/postinstall.ts              # installs hook + patches ~/.claude/settings.json + scans
-echo 'eval "$(claude-manager init zsh)"' >> ~/.zshrc   # or .bashrc / .config/fish/config.fish
+bun src/postinstall.ts                                # install hook + patch ~/.claude/settings.json + initial scan
+echo 'eval "$(claude-manager init zsh)"' >> ~/.zshrc  # or .bashrc / .config/fish/config.fish
 exec $SHELL
 ```
 
-What postinstall does (idempotent):
-
-- Writes `~/.claudemanager/hook.sh` (chmod +x)
-- Non-destructively merges `SessionStart` + `Stop` hooks into `~/.claude/settings.json`
-- Backfills every existing session from `~/.claude/projects/` into `~/.claudemanager/db.sqlite`
-- Prints the one line to add to your shell rc
+The `eval "$(claude-manager init <shell>)"` line installs both the `cm()` shell function (which `eval`s the resume line so your parent shell actually `cd`s) **and** tab-completion for `cm <name>`.
 
 Verify with:
 
@@ -70,18 +65,45 @@ claude-manager doctor       # 5/5 checks should pass
 | `cm` | open the TUI |
 | `cm here` | TUI pre-filtered to `$(pwd)` |
 | `cm last` | resume the most recent session, no TUI |
-| `cm <name>` | **exact custom_name match → resume immediately** |
-| `cm <fuzzy>` | **closest match → confirm prompt** (`↵` resume, `t` open TUI, anything else cancels) |
+| `cm <name>` | exact `custom_name` match → resume immediately (Tab-complete works) |
+| `cm <fuzzy>` | closest match → confirm prompt (`↵` resume, `t` open TUI, anything else cancels) |
 | `claude-manager scan` | re-run backfill from `~/.claude/projects/` |
 | `claude-manager doctor` | health check (registry, hook, settings patch, claude on PATH) |
 | `claude-manager prune` | delete sessions older than `prune_days` setting |
 | `claude-manager uninstall` | remove hook + settings patch (registry preserved) |
-| `claude-manager export <id>` | dump a session transcript to stdout |
-| `claude-manager init [bash\|zsh\|fish]` | print shell wrapper for `eval` |
+| `claude-manager export <id\|name>` | dump a session transcript to stdout (raw JSONL) |
+| `claude-manager export <id\|name> --md` | dump as clean markdown (role headers, code fences, tool calls) |
+| `claude-manager grep <pattern>` | search message content across all transcripts; coral-highlights the match in TTY |
+| `claude-manager auto-name <id>` | call `claude -p` to summarize the chat into a 3-word kebab-case name |
+| `claude-manager auto-name --all` | name every unnamed session (max 10 per invocation) |
+| `claude-manager theme list` | list themes with the active one marked |
+| `claude-manager theme <name>` | set the active TUI theme (persists) |
+| `claude-manager theme reset` | back to coral default |
+| `claude-manager completions` | print completion tokens (used by the shell wrapper) |
+| `claude-manager init [bash\|zsh\|fish]` | print shell wrapper + completion for `eval` |
 
 ---
 
-## Keys (TUI)
+## Themes
+
+Five built-in palettes, switchable live and persisted:
+
+| Name | Vibe |
+| --- | --- |
+| `coral` (default) | Claude brand — coral on warm off-white |
+| `catppuccin` | Catppuccin Mocha — pink/lavender |
+| `gruvbox` | Gruvbox dark — burnt orange |
+| `nord` | Nord — frost cyan on slate |
+| `mono` | Pure monochrome — works on any terminal |
+
+```bash
+claude-manager theme nord
+cm                       # rendered in nord palette
+```
+
+---
+
+## TUI keys
 
 **Navigation**
 
@@ -99,31 +121,44 @@ claude-manager doctor       # 5/5 checks should pass
 | --- | --- |
 | `↵` Enter | resume selected session |
 | `r` | rename — set `custom_name` (used by `cm <name>`) |
+| `t` | add or remove a tag on the current row (toggle) |
 | `f` | toggle favorite |
 | `d` | delete from registry |
+| `H` | show / hide sessions whose project dir is gone |
+
+**Bulk select**
+
+| Key | Action |
+| --- | --- |
+| `Space` | toggle current row in/out of selection |
+| `a` | select all visible rows |
+| `d` (with selection) | bulk-delete selected sessions |
+| `t` (with selection) | bulk-tag all selected |
+| `Esc` | clear selection (or quit if empty) |
 
 **Search**
 
 | Key | Action |
 | --- | --- |
 | any letter | live fuzzy filter |
+| `#tag` | filter to sessions with that tag (AND for multiple, e.g. `#bug #wip`) |
 | Backspace | remove last char |
-| `q` / `Esc` / `Ctrl-c` | quit (no resume) |
+| `q` / `Ctrl-c` | quit (no resume) |
 
 ---
 
 ## Views
 
-The TUI has four tabs:
+The TUI has four tabs (`Tab` to cycle, or `1`/`2`/`3`/`?` to jump):
 
-1. **sessions** — the picker. Time-bucketed groups (`★ favorites` / `today` / `yesterday` / `this week` / `this month` / `older`). Per-project language tag (`ts` `js` `py` `rs` `go` `rb` `dn` `jv` `git`) detected from marker files (`tsconfig.json`, `Cargo.toml`, `pyproject.toml`, etc).
-2. **overview** — totals (sessions / favorites / messages / tokens), 30-day session sparkline, oldest→newest span.
+1. **sessions** — the picker. Time-bucketed groups (`★ favorites` / `today` / `yesterday` / `this week` / `this month` / `older`). Per-project language tag (`ts` `js` `py` `rs` `go` `rb` `dn` `jv` `git`). Tag chips on rows that have any.
+2. **overview** — totals (sessions / favorites / messages / tokens / **estimated cost**), 30-day session sparkline, **this-week** (sessions / tokens / cost), **by-model** breakdown sorted by cost, oldest→newest span.
 3. **projects** — cwd grouping with horizontal coral bars sized by session count, last-activity timestamps.
-4. **help** — full keymap reference.
+4. **help** — full keymap reference grouped by category.
 
 ---
 
-## Custom names
+## Custom names + tab completion
 
 Press `r` on a row in the TUI to give a session a memorable name:
 
@@ -134,8 +169,8 @@ rename  refactor the auth middleware  →  auth-rewrite▮
 Then from any directory:
 
 ```bash
-$ cm auth-rewrite
-# resumes immediately — no prompt
+$ cm aut<Tab>     # → cm auth-rewrite
+$ cm auth-rewrite # resumes immediately — no prompt
 ```
 
 Close-but-not-exact matches get a confirmation:
@@ -145,12 +180,104 @@ $ cm auth
 
   did you mean  auth-rewrite
   query  auth
-  cwd    ~/work/api
+  cwd    /home/you/projects/api
 
   ↵ resume    t open TUI    n/Esc cancel
 ```
 
-Ranking is custom_name (×4) > first prompt (×2) > cwd (×1). Exact case-insensitive name match wins immediately.
+Ranking is `custom_name` (×4) > `first_prompt` (×2) > `cwd` (×1). Exact case-insensitive name match wins immediately.
+
+---
+
+## Tags
+
+Press `t` on a row to add or remove a tag (toggle behavior). Filter with `#tag` in search:
+
+```
+  >  #bug auth         only sessions tagged #bug whose title/cwd matches "auth"
+  >  #bug #wip         AND — sessions tagged BOTH bug and wip
+```
+
+Tags are stored in the `tags` table and surface as small chips on each row when the terminal is wide enough.
+
+---
+
+## Bulk operations
+
+In the sessions view, press `Space` to toggle a row in/out of a selection set. The row gets a `[x]` mark. With selection non-empty:
+
+- `a` — add all visible rows to the selection
+- `d` — bulk delete every selected session
+- `t` — open the tag input; the typed tag is applied to all selected
+- `Esc` — clear selection
+
+---
+
+## Cost tracking
+
+The Overview view estimates spend by combining `token_count` with the model name extracted from `env_json` (`ANTHROPIC_MODEL`) or `launch_argv_json` (`--model <name>`). Pricing rates are baked in for current Opus / Sonnet / Haiku tiers; sessions whose model can't be inferred fall back to a sensible default. The **by-model** panel shows per-model session count and aggregate cost sorted descending.
+
+---
+
+## Auto-name
+
+Press the corresponding flow on the CLI:
+
+```bash
+claude-manager auto-name <session-id>      # one session
+claude-manager auto-name --all             # name up to 10 unnamed sessions
+```
+
+Internally this shells out to `claude -p "in 3-5 words..."` so it inherits your existing Claude auth — no API key handling, no SDK install.
+
+---
+
+## Markdown export
+
+```bash
+claude-manager export <id|name> --md > chat.md
+```
+
+Output:
+
+```markdown
+# auth-rewrite
+
+`/home/you/projects/api` · 2026-04-25 · 42 messages · 18420 tokens
+
+---
+
+### user
+
+refactor the auth middleware to use the new session token format
+
+---
+
+### assistant
+
+i'll start by reading the current middleware…
+
+---
+```
+
+Tool calls become fenced blocks with the tool name as the language hint; tool results land in `tool-result` fences.
+
+---
+
+## Transcript grep
+
+```bash
+$ claude-manager grep "websocket leak"
+
+abc-123  (~/projects/api · 3h ago)
+   user  : here's the failing test, why does it leak?
+   asst  : looking at the websocket reconnect logic now…
+
+xyz-789  (~/sandbox · 2d ago)
+   asst  : i think the leak is in the cleanup callback
+```
+
+ANSI coral highlighting kicks in only when stdout is a TTY (so piping to `grep -v` works cleanly).
 
 ---
 
@@ -164,14 +291,14 @@ A small Bash hook fires on every Claude `SessionStart` and `Stop`. It writes a s
 - An env allow-list (`ANTHROPIC_MODEL`, `ANTHROPIC_BASE_URL`, etc.)
 - On stop: message count, token count, first user prompt
 
-The hook is silent — never writes to stdout/stderr. The Claude UI never sees it.
+The hook is silent — it never writes to stdout/stderr. The Claude UI never sees it.
 
-The next time you run any `cm` command, the binary drains `queue.jsonl` into `~/.claudemanager/db.sqlite` (idempotent — `INSERT OR IGNORE` keyed on session_id, preserves favorites/custom names) and then routes to the right subcommand.
+The next time you run any `cm` command, the binary drains `queue.jsonl` into `~/.claudemanager/db.sqlite` (idempotent — `INSERT OR IGNORE` keyed on `session_id`, preserves favorites / custom names / tags) and then routes to the right subcommand.
 
 When you pick a session, the binary writes a single line on stdout:
 
 ```
-cd '/home/you/work/api' && exec claude --model opus --mcp-config foo.json --resume abc-123
+cd '/home/you/projects/api' && exec claude --model opus --mcp-config foo.json --resume abc-123
 ```
 
 Your shell function (`eval "$(claude-manager init zsh)"`) captures that and `eval`s it — so the **parent shell** actually `cd`s and the new `claude` process replaces the shell. Non-resume output (doctor checks, scan summary, help text) is just printed.
@@ -184,7 +311,7 @@ The TUI itself is rendered to `/dev/tty` directly so it never pollutes the captu
 
 | Path | Purpose |
 | --- | --- |
-| `~/.claudemanager/db.sqlite` | session registry (sessions, tags, favorites, settings) |
+| `~/.claudemanager/db.sqlite` | session registry (sessions / tags / favorites / settings) |
 | `~/.claudemanager/queue.jsonl` | append-only event queue, drained on every CLI invocation |
 | `~/.claudemanager/hook.sh` | the bash hook installed into Claude Code |
 | `~/.claude/settings.json` | patched non-destructively to register the hook |
@@ -194,9 +321,9 @@ Settings live in the `settings` table:
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `prune_days` | `0` | If > 0, `claude-manager prune` removes non-favorite, non-named sessions older than this |
-| `hide_missing_dirs` | `1` | Hide rows whose `cwd` no longer exists on disk |
+| `hide_missing_dirs` | `0` | Hide rows whose `cwd` no longer exists on disk (toggle live with `H`) |
+| `theme` | `coral` | Active TUI palette (set with `claude-manager theme <name>`) |
 | `delete_jsonl_with_session` | `ask` | Reserved for future TUI delete confirmation |
-| `accent_color` | `#D97757` | Reserved for future themability |
 
 ---
 
@@ -215,51 +342,16 @@ rm -rf ~/.claudemanager
 
 ---
 
-## Known limitations (v0.1.0)
+## Known limitations (v0.2.0)
 
 - **Bun required.** No Node-only build path yet.
 - **Linux + macOS only.** Windows skipped — `/proc` and `ps -o args=` are the parent-argv strategies.
-- **`cm` deletion has no confirmation prompt.** A miskey on `d` immediately removes the row from the registry (the underlying transcript JSONL on disk is left alone).
-- **Markdown export deferred.** `claude-manager export <id>` dumps raw JSONL.
-- **No multi-machine sync.** Schema reserves `origin_host` for it; not implemented.
+- `auto-name` requires `claude` on PATH (it shells out to `claude -p`).
+- `d` deletion has no confirmation prompt — be careful, but the underlying transcript JSONL on disk is left untouched.
+- No multi-machine sync. Schema reserves `origin_host` for it; not implemented.
 
 ---
 
-## Architecture
+## Tests
 
-```
-src/
-├── cli.ts                  argv router; forces FORCE_COLOR=3 before chalk loads
-├── postinstall.ts          hook copy + settings patch + initial scan
-├── hook/hook.sh            silent bash session-capture hook
-├── registry/
-│   ├── db.ts               bun:sqlite open + WAL + schema + default settings
-│   ├── schema.sql          tables + indexes
-│   ├── drain.ts            queue.jsonl → sqlite (idempotent, preserves user fields)
-│   └── search.ts           listSessions + fuzzyMatch (subsequence + proximity)
-├── platform/
-│   ├── paths.ts            ~/.claudemanager + ~/.claude/* path constants
-│   ├── settings.ts         non-destructive ~/.claude/settings.json merge
-│   └── argv.ts             cwd unsanitize (power-set), parent argv read
-├── commands/
-│   ├── pick.ts             Ink TUI launcher → /dev/tty + buildResumeLine + shell quoting
-│   ├── confirm.ts          /dev/tty raw-mode confirm prompt for cm <fuzzy>
-│   ├── fuzzy.ts            cm <query> dispatch: exact → resume, fuzzy → confirm, else TUI
-│   ├── last.ts             resume most-recent
-│   ├── here.ts             TUI filtered to $(pwd)
-│   ├── scan.ts             backfill from ~/.claude/projects
-│   ├── init.ts             shell wrapper generation (bash/zsh/fish)
-│   ├── doctor.ts           health checks
-│   ├── prune.ts / uninstall.ts / export.ts
-└── tui/
-    ├── App.tsx             view-switching, key handling, rename mode
-    ├── List.tsx            time-bucket grouping, lang tags, full-width selection
-    ├── SearchBar.tsx       coral prompt, cursor, counts
-    ├── Preview.tsx         per-message coral bullet, role tags
-    ├── Stats.tsx           overview view: totals + 30-day sparkline
-    ├── Projects.tsx        per-cwd grouping with relative bar charts
-    ├── Help.tsx            full keymap reference
-    └── theme.ts            palette + glyphs + relativeTime + timeBucket + langTag
-```
-
-47 tests (`bun test`). Type-check: `bunx tsc --noEmit`.
+92 tests across 15 files (`bun test`). Type-check: `bunx tsc --noEmit`.

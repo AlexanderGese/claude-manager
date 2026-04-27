@@ -1,6 +1,6 @@
 {
   "name": "claude-manager",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Global session manager + resumer for Claude Code",
   "type": "module",
   "bin": {
