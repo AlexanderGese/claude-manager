@@ -402,15 +402,25 @@ export function App({ db, initialFilterCwd, initialQuery, onSelect, onCancel }: 
 }
 
 function TabBar({ view }: { view: View }) {
+  // Pad every pill to the same width so the active coral background reads as
+  // a chunky uniform tab, not a tight wrapper around the text.
+  const labelMax = Math.max(...VIEWS.map(v => VIEW_LABEL[v].length));
+  const pillWidth = labelMax + 7; // "  N   <label>  "
+
   return (
     <Box paddingX={2}>
       {VIEWS.map((v, i) => {
         const active = v === view;
         const num = i + 1;
+        const inner = `  ${num}   ${VIEW_LABEL[v]}  `.padEnd(pillWidth);
         return (
-          <Box key={v} marginRight={3}>
-            <Text color={active ? theme.fgSelected : theme.fgDim} backgroundColor={active ? theme.accent : undefined} bold={active}>
-              {` ${num}  ${VIEW_LABEL[v]} `}
+          <Box key={v} marginRight={2}>
+            <Text
+              color={active ? theme.fgSelected : theme.fgDim}
+              backgroundColor={active ? theme.accent : undefined}
+              bold={active}
+            >
+              {inner}
             </Text>
           </Box>
         );
