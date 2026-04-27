@@ -21,6 +21,7 @@ const GROUPS: Group[] = [
       ["r", "rename — set custom_name (used by cm <name>)"],
       ["f", "toggle favorite"],
       ["d", "delete from registry"],
+      ["H", "show / hide sessions whose project dir is gone"],
     ],
   },
   {

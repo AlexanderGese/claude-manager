@@ -41,12 +41,12 @@ export function App({ db, initialFilterCwd, initialQuery, onSelect, onCancel }: 
   // When non-null, we are editing the custom_name of rows[selected].
   const [editing, setEditing] = useState<string | null>(null);
 
-  const hideMissing = useMemo(() => {
+  const [hideMissing, setHideMissing] = useState(() => {
     const v = db.query<{ value: string }, []>(
       "SELECT value FROM settings WHERE key='hide_missing_dirs'"
     ).get()?.value;
     return v === "1";
-  }, [db]);
+  });
 
   const allRows = useMemo(
     () => listSessions(db, { query: "", filterCwd: null, includeMissing: !hideMissing }),
@@ -121,6 +121,16 @@ export function App({ db, initialFilterCwd, initialQuery, onSelect, onCancel }: 
       if (row) setEditing(row.custom_name ?? "");
       return;
     }
+    if (input === "H") {
+      // Toggle hide_missing_dirs and persist for next launch.
+      setHideMissing(h => {
+        const next = !h;
+        db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('hide_missing_dirs', ?)", [next ? "1" : "0"]);
+        return next;
+      });
+      setSelected(0);
+      return;
+    }
     if (input === "f") {
       const row = rows[selected];
       if (row) {
@@ -179,27 +189,27 @@ export function App({ db, initialFilterCwd, initialQuery, onSelect, onCancel }: 
           ) : (
             <SearchBar query={query} filterCwd={filterCwd} total={allRows.length} shown={rows.length} />
           )}
-          <Box borderStyle="round" borderColor={theme.borderDim} flexDirection="column" paddingX={1} height={listHeight}>
+          <Box borderStyle="round" borderColor={theme.borderDim} flexDirection="column" paddingX={1} height={listHeight} overflow="hidden">
             <List rows={rows} selectedIndex={selected} height={listHeight - 2} width={termWidth - 4} />
           </Box>
-          <Box borderStyle="round" borderColor={theme.borderDim} flexDirection="column" paddingX={1} height={previewHeight}>
+          <Box borderStyle="round" borderColor={theme.borderDim} flexDirection="column" paddingX={1} height={previewHeight} overflow="hidden">
             <Preview row={currentRow} height={previewHeight - 3} width={termWidth - 4} />
           </Box>
         </>
       )}
 
       {view === "stats" && (
-        <Box borderStyle="round" borderColor={theme.borderDim} flexDirection="column" height={bodyHeight}>
+        <Box borderStyle="round" borderColor={theme.borderDim} flexDirection="column" height={bodyHeight} overflow="hidden">
           <Stats db={db} width={termWidth - 4} height={bodyHeight - 2} />
         </Box>
       )}
       {view === "projects" && (
-        <Box borderStyle="round" borderColor={theme.borderDim} flexDirection="column" height={bodyHeight}>
+        <Box borderStyle="round" borderColor={theme.borderDim} flexDirection="column" height={bodyHeight} overflow="hidden">
           <Projects db={db} width={termWidth - 4} height={bodyHeight - 2} />
         </Box>
       )}
       {view === "help" && (
-        <Box borderStyle="round" borderColor={theme.borderDim} flexDirection="column" height={bodyHeight}>
+        <Box borderStyle="round" borderColor={theme.borderDim} flexDirection="column" height={bodyHeight} overflow="hidden">
           <Help width={termWidth - 4} height={bodyHeight - 2} />
         </Box>
       )}

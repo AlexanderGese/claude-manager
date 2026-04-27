@@ -8,7 +8,11 @@ const SCHEMA_PATH = fileURLToPath(new URL("./schema.sql", import.meta.url));
 
 const DEFAULT_SETTINGS: Record<string, string> = {
   prune_days: "0",
-  hide_missing_dirs: "1",
+  // Show every session by default. The whole point of the manager is finding
+  // sessions — hiding them when their cwd is missing on disk is too aggressive
+  // (project dirs get renamed, moved, etc., but the chat is still resumable
+  // and the user might want to find it). Toggle live in the TUI with `H`.
+  hide_missing_dirs: "0",
   delete_jsonl_with_session: "ask",
   accent_color: "#D97757",
   schema_version: "1",

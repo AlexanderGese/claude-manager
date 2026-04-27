@@ -27,9 +27,16 @@ export function List({ rows, selectedIndex, height, width }: Props) {
   // Pre-compute per-row bucket tags. Then window the visible slice.
   // We always render a section header on the first row of slice (so the user
   // knows which bucket they're in) and on every transition.
+  //
+  // Each visible row consumes 1 line. Section headers consume 1 line each.
+  // With ~6 buckets (favorites/today/yesterday/this week/this month/older) a
+  // window can show at most a few transitions. Reserve roughly half the
+  // budget for headers in the worst case so content doesn't overflow the
+  // bordered list pane and clobber the preview below it.
   const buckets = rows.map(r => r.is_favorite ? "favorites" : timeBucket(r.last_activity_at));
 
-  const windowSize = Math.max(1, height - 1);
+  const headerBudget = Math.min(3, Math.max(1, Math.floor(height / 6)));
+  const windowSize = Math.max(1, height - 1 - headerBudget);
   const start = Math.max(0, Math.min(selectedIndex - Math.floor(windowSize / 2), rows.length - windowSize));
   const slice = rows.slice(start, start + windowSize);
 

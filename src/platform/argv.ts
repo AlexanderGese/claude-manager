@@ -19,32 +19,44 @@ export function unsanitizeCwd(name: string): string {
  */
 export function resolveCwdCandidates(name: string): string[] {
   if (!name.startsWith("-")) return [name];
-  const ambiguous: number[] = [];
-  for (let i = 1; i < name.length; i++) {
-    if (name[i] === "-") ambiguous.push(i);
-  }
-  const n = ambiguous.length;
   const candidates = new Set<string>();
-  if (n <= 6) {
-    for (let mask = 0; mask < (1 << n); mask++) {
-      const keep = new Set<number>();
-      for (let bit = 0; bit < n; bit++) {
-        if (mask & (1 << bit)) keep.add(ambiguous[bit]);
-      }
-      let out = "/";
-      for (let i = 1; i < name.length; i++) {
-        out += name[i] === "-" ? (keep.has(i) ? "-" : "/") : name[i];
-      }
-      candidates.add(out);
+
+  // Sources to feed into the dash-power-set: the raw name, plus a "dotted"
+  // variant where each `--` (older Claude format for slash + dotfile, e.g.
+  // `--vault` → `/.vault`) is rewritten as `-.`. Both go through the same
+  // ambiguity expansion below.
+  const sources = new Set<string>([name]);
+  if (name.includes("--")) {
+    sources.add(name.replace(/--/g, "-."));
+  }
+
+  for (const src of sources) {
+    const ambiguous: number[] = [];
+    for (let i = 1; i < src.length; i++) {
+      if (src[i] === "-") ambiguous.push(i);
     }
-  } else {
-    candidates.add("/" + name.slice(1).replace(/-/g, "/"));
-    for (const i of ambiguous) {
-      let out = "/";
-      for (let j = 1; j < name.length; j++) {
-        out += name[j] === "-" ? (j === i ? "-" : "/") : name[j];
+    const n = ambiguous.length;
+    if (n <= 6) {
+      for (let mask = 0; mask < (1 << n); mask++) {
+        const keep = new Set<number>();
+        for (let bit = 0; bit < n; bit++) {
+          if (mask & (1 << bit)) keep.add(ambiguous[bit]);
+        }
+        let out = "/";
+        for (let i = 1; i < src.length; i++) {
+          out += src[i] === "-" ? (keep.has(i) ? "-" : "/") : src[i];
+        }
+        candidates.add(out);
       }
-      candidates.add(out);
+    } else {
+      candidates.add("/" + src.slice(1).replace(/-/g, "/"));
+      for (const i of ambiguous) {
+        let out = "/";
+        for (let j = 1; j < src.length; j++) {
+          out += src[j] === "-" ? (j === i ? "-" : "/") : src[j];
+        }
+        candidates.add(out);
+      }
     }
   }
   return [...candidates];

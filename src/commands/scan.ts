@@ -82,6 +82,26 @@ export function scan(db: Database, projectsRoot: string): number {
     VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?)
   `);
 
+  // Repair: fix backfilled rows whose stored cwd no longer resolves on disk.
+  // Older scans stored cwds with stray double-slashes (e.g. /home/user//vault)
+  // because the unsanitizer treated `--` as two `/` instead of `/.`. Re-resolve
+  // each broken cwd and update if a real path is found via resolveBestCwd.
+  const updateCwd = db.prepare("UPDATE sessions SET cwd = ? WHERE session_id = ?");
+  const broken = db.query<{ session_id: string; cwd: string }, []>(
+    "SELECT session_id, cwd FROM sessions WHERE is_backfilled = 1"
+  ).all();
+  for (const row of broken) {
+    if (existsSync(row.cwd)) continue;
+    // Reverse the cwd back to a sanitized name and try again with the new
+    // logic. Best effort: replace `/.` with `--` (inverse of dotfile rule)
+    // and `/` with `-`, prefixed.
+    const sanitized = "-" + row.cwd.replace(/\/\./g, "--").replace(/\//g, "-").slice(1);
+    const fixed = resolveBestCwd(sanitized);
+    if (fixed !== row.cwd && existsSync(fixed)) {
+      updateCwd.run(fixed, row.session_id);
+    }
+  }
+
   let inserted = 0;
   let projectDirs: string[];
   try { projectDirs = readdirSync(projectsRoot); }
