@@ -1,6 +1,8 @@
 import React, { useMemo } from "react";
 import { Box, Text } from "ink";
 import { theme, GLYPHS } from "./theme.ts";
+import { estimateCost, fmtUsd, modelOf } from "./pricing.ts";
+import type { SessionRow } from "../registry/search.ts";
 import type { Database } from "bun:sqlite";
 
 interface Props { db: Database; width: number; height: number }
@@ -47,6 +49,34 @@ export function Stats({ db, width }: Props) {
     return rows;
   }, [db]);
 
+  // All rows for cost calculations — loaded once.
+  const allRows = useMemo<SessionRow[]>(() => {
+    return db.query<SessionRow, []>("SELECT * FROM sessions WHERE is_archived = 0").all();
+  }, [db]);
+
+  const totalCost = useMemo(() => {
+    return allRows.reduce((acc, r) => acc + estimateCost(r.token_count, modelOf(r)), 0);
+  }, [allRows]);
+
+  // This-week stats.
+  const weekAgo = Math.floor(Date.now() / 1000) - 7 * 86400;
+  const weekRows = useMemo(() => allRows.filter(r => r.last_activity_at >= weekAgo), [allRows]);
+  const weekTokens = weekRows.reduce((acc, r) => acc + r.token_count, 0);
+  const weekCost   = weekRows.reduce((acc, r) => acc + estimateCost(r.token_count, modelOf(r)), 0);
+
+  // By-model breakdown.
+  const byModel = useMemo(() => {
+    const map = new Map<string, { count: number; cost: number }>();
+    for (const r of allRows) {
+      const m = modelOf(r) ?? "(unknown)";
+      const entry = map.get(m) ?? { count: 0, cost: 0 };
+      entry.count++;
+      entry.cost += estimateCost(r.token_count, m === "(unknown)" ? null : m);
+      map.set(m, entry);
+    }
+    return [...map.entries()].sort((a, b) => b[1].cost - a[1].cost);
+  }, [allRows]);
+
   const last30 = lastNDays(daily, 30);
 
   return (
@@ -57,6 +87,7 @@ export function Stats({ db, width }: Props) {
         <Stat label="favorites"  value={String(totals.favorites)} />
         <Stat label="messages"   value={fmtNum(totals.messages)} />
         <Stat label="tokens"     value={fmtNum(totals.tokens)} accent />
+        <Stat label="cost"       value={fmtUsd(totalCost)} accent />
       </Box>
 
       <Box marginTop={2} flexDirection="column">
@@ -73,6 +104,28 @@ export function Stats({ db, width }: Props) {
           </Text>
         </Box>
       </Box>
+
+      <Box marginTop={2} flexDirection="column">
+        <Text color={theme.accentSoft} bold>this week</Text>
+        <Box marginTop={0} flexDirection="row">
+          <Stat label="sessions" value={String(weekRows.length)} />
+          <Stat label="tokens"   value={fmtNum(weekTokens)} />
+          <Stat label="cost"     value={fmtUsd(weekCost)} accent />
+        </Box>
+      </Box>
+
+      {byModel.length > 0 && (
+        <Box marginTop={2} flexDirection="column">
+          <Text color={theme.accentSoft} bold>by model</Text>
+          {byModel.slice(0, 8).map(([model, { count, cost }]) => (
+            <Box key={model}>
+              <Text color={theme.accent} bold>{`  ${model.padEnd(26)}`}</Text>
+              <Text color={theme.fgDim}>{`${String(count).padStart(4)} sessions   `}</Text>
+              <Text color={theme.fg}>{fmtUsd(cost)}</Text>
+            </Box>
+          ))}
+        </Box>
+      )}
 
       <Box marginTop={2} flexDirection="column">
         <Text color={theme.accentSoft} bold>span</Text>
