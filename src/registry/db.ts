@@ -15,6 +15,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   hide_missing_dirs: "0",
   delete_jsonl_with_session: "ask",
   accent_color: "#D97757",
+  theme: "coral",
   schema_version: "1",
 };
 
