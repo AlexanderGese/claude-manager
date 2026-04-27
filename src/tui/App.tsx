@@ -269,9 +269,9 @@ export function App({ db, initialFilterCwd, initialQuery, onSelect, onCancel }: 
     }
   });
 
-  // Header (6: round border 2 + paddingY 2 + 2 content rows) + tabs (1) +
+  // Header (5: round border 2 + 3 content rows of ASCII mark) + tabs (1) +
   // search/rename (1) + footer (1)
-  const fixedH = 6 + 1 + 1 + 1;
+  const fixedH = 5 + 1 + 1 + 1;
   const listHeight = Math.max(6, Math.floor((termHeight - fixedH) * 0.55));
   const previewHeight = Math.max(4, termHeight - fixedH - listHeight - 1);
   const currentRow = rows[selected] ?? null;
@@ -286,26 +286,36 @@ export function App({ db, initialFilterCwd, initialQuery, onSelect, onCancel }: 
         borderStyle="round"
         borderColor={theme.accent}
         paddingX={2}
-        paddingY={1}
-        flexDirection="column"
+        flexDirection="row"
       >
-        <Box flexDirection="row">
-          <Text color={theme.accent} bold>{`${GLYPHS.diamond}  claude-manager`}</Text>
-          <Box flexGrow={1} />
+        {/* Left: 3-line ASCII "CM" mark */}
+        <Box flexDirection="column">
+          <Text color={theme.accent} bold>{"█▀▀ █▀▄▀█"}</Text>
+          <Text color={theme.accent} bold>{"█   █   █"}</Text>
+          <Text color={theme.accent} bold>{"▀▀▀ ▀   ▀"}</Text>
+        </Box>
+
+        {/* Middle: brand text */}
+        <Box flexDirection="column" marginLeft={3}>
+          <Text> </Text>
+          <Text color={theme.accent} bold>claude-manager</Text>
+          <Text color={theme.fgMuted}>global session resumer</Text>
+        </Box>
+
+        <Box flexGrow={1} />
+
+        {/* Right: counts + version */}
+        <Box flexDirection="column" alignItems="flex-end">
+          <Text> </Text>
           {view === "sessions" ? (
-            <>
+            <Text>
               <Text color={theme.fg} bold>{`${rows.length}`}</Text>
               <Text color={theme.fgDim}>{` of ${allRows.length} sessions`}</Text>
-            </>
+            </Text>
           ) : (
             <Text color={theme.fgDim}>{`${VIEW_LABEL[view]} view`}</Text>
           )}
-          <Text color={theme.fgDim}>{"   "}</Text>
           <Text color={theme.accentDeep}>v0.2.0</Text>
-        </Box>
-        <Box flexDirection="row" marginTop={0}>
-          <Text color={theme.fgMuted}>{"   global session resumer for "}</Text>
-          <Text color={theme.accentSoft}>claude code</Text>
         </Box>
       </Box>
 

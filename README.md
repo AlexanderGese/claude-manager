@@ -1,4 +1,8 @@
-# claude-manager
+<pre>
+   █▀▀ █▀▄▀█    claude-manager
+   █   █   █    global session resumer for claude code
+   ▀▀▀ ▀   ▀
+</pre>
 
 A global session manager + resumer for [Claude Code](https://claude.com/claude-code). Run `cm` from any directory, fuzzy-search every Claude session you've ever had, hit enter — your shell `cd`s into the original project and resumes the chat with the exact original `claude` flags.
 

@@ -13,7 +13,9 @@ import { openDb } from "./registry/db.ts";
 import { drain } from "./registry/drain.ts";
 
 const HELP = `
-claude-manager — global session manager for Claude Code
+   █▀▀ █▀▄▀█    claude-manager v0.2.0
+   █   █   █    global session resumer for claude code
+   ▀▀▀ ▀   ▀
 
 Usage:
   claude-manager [<query>]            open TUI (or auto-resume on unique fuzzy match)
