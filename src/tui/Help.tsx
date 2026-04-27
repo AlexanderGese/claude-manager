@@ -20,14 +20,26 @@ const GROUPS: Group[] = [
       ["↵ Enter", "resume selected session"],
       ["r", "rename — set custom_name (used by cm <name>)"],
       ["f", "toggle favorite"],
+      ["t", "add/remove tag on current session (toggle)"],
       ["d", "delete from registry"],
       ["H", "show / hide sessions whose project dir is gone"],
+    ],
+  },
+  {
+    title: "bulk select",
+    rows: [
+      ["Space", "toggle current row in/out of selection"],
+      ["a", "select all visible rows"],
+      ["d  (with selection)", "bulk delete selected sessions"],
+      ["t  (with selection)", "tag all selected sessions"],
+      ["Esc", "clear selection"],
     ],
   },
   {
     title: "search & filter",
     rows: [
       ["type any letter", "fuzzy search live"],
+      ["#tag in search", "filter to sessions with that tag (AND for multiple)"],
       ["Backspace", "remove last char"],
       ["q  /  Esc  /  Ctrl-c", "quit (no resume)"],
     ],

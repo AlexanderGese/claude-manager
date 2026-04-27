@@ -27,6 +27,21 @@ interface Props {
   onCancel: () => void;
 }
 
+// Parse `#tag` tokens out of a raw query string.
+function parseQuery(raw: string): { terms: string; tags: string[] } {
+  const parts = raw.trim().split(/\s+/);
+  const tags: string[] = [];
+  const terms: string[] = [];
+  for (const p of parts) {
+    if (p.startsWith("#") && p.length > 1) {
+      tags.push(p.slice(1).toLowerCase());
+    } else if (p) {
+      terms.push(p);
+    }
+  }
+  return { terms: terms.join(" "), tags };
+}
+
 export function App({ db, initialFilterCwd, initialQuery, onSelect, onCancel }: Props) {
   const { exit } = useApp();
   const { stdout } = useStdout();
@@ -40,6 +55,10 @@ export function App({ db, initialFilterCwd, initialQuery, onSelect, onCancel }: 
   const [tick, force] = useState(0);
   // When non-null, we are editing the custom_name of rows[selected].
   const [editing, setEditing] = useState<string | null>(null);
+  // When non-null, we are in tag-input mode for rows[selected] (or bulk selection).
+  const [tagging, setTagging] = useState<string | null>(null);
+  // Bulk-select set of session_ids.
+  const [selection, setSelection] = useState<Set<string>>(new Set());
 
   const [hideMissing, setHideMissing] = useState(() => {
     const v = db.query<{ value: string }, []>(
@@ -48,16 +67,67 @@ export function App({ db, initialFilterCwd, initialQuery, onSelect, onCancel }: 
     return v === "1";
   });
 
+  const { terms, tags: filterTags } = useMemo(() => parseQuery(query), [query]);
+
   const allRows = useMemo(
     () => listSessions(db, { query: "", filterCwd: null, includeMissing: !hideMissing }),
     [db, tick, hideMissing]
   );
   const rows = useMemo(
-    () => listSessions(db, { query, filterCwd, includeMissing: !hideMissing }),
-    [db, query, filterCwd, tick, hideMissing]
+    () => listSessions(db, { query: terms, filterCwd, includeMissing: !hideMissing, tags: filterTags }),
+    [db, terms, filterCwd, tick, hideMissing, filterTags]
   );
 
+  // Load all tags once per tick — one query, O(sessions).
+  const tagsByRow = useMemo<Map<string, string[]>>(() => {
+    const map = new Map<string, string[]>();
+    const tagRows = db.query<{ session_id: string; tag: string }, []>(
+      "SELECT session_id, tag FROM tags ORDER BY tag ASC"
+    ).all();
+    for (const tr of tagRows) {
+      const existing = map.get(tr.session_id) ?? [];
+      existing.push(tr.tag);
+      map.set(tr.session_id, existing);
+    }
+    return map;
+  }, [db, tick]);
+
   useInput((input, key) => {
+    // ── TAG MODE captures everything ──────────────────────────────────
+    if (tagging !== null) {
+      if (key.escape) { setTagging(null); return; }
+      if (key.return) {
+        const trimmed = tagging.trim().toLowerCase();
+        if (trimmed) {
+          // Determine target session_ids: bulk selection or just current row.
+          const targetIds: string[] = selection.size > 0
+            ? [...selection]
+            : (rows[selected] ? [rows[selected].session_id] : []);
+          for (const sid of targetIds) {
+            // Toggle: if ALL targets have the tag, remove; if any don't, add.
+            const existing = tagsByRow.get(sid) ?? [];
+            if (existing.includes(trimmed)) {
+              db.run("DELETE FROM tags WHERE session_id = ? AND tag = ?", [sid, trimmed]);
+            } else {
+              db.run("INSERT OR IGNORE INTO tags (session_id, tag) VALUES (?, ?)", [sid, trimmed]);
+            }
+          }
+          force(n => n + 1);
+        }
+        setTagging(null);
+        return;
+      }
+      if (key.backspace || key.delete) {
+        setTagging(s => (s ?? "").slice(0, -1));
+        return;
+      }
+      // Only allow tag-safe characters.
+      if (input && !key.ctrl && !key.meta && input.length === 1 && /[\w\-]/.test(input)) {
+        setTagging(s => (s ?? "") + input);
+      }
+      return;
+    }
+
     // ── RENAME MODE captures everything ───────────────────────────────
     if (editing !== null) {
       if (key.escape) { setEditing(null); return; }
@@ -85,7 +155,13 @@ export function App({ db, initialFilterCwd, initialQuery, onSelect, onCancel }: 
     }
 
     // ── GLOBAL ────────────────────────────────────────────────────────
-    if (key.escape || (key.ctrl && input === "c") || input === "q") {
+    if (key.escape) {
+      if (selection.size > 0) { setSelection(new Set()); return; }
+      onCancel();
+      exit();
+      return;
+    }
+    if ((key.ctrl && input === "c") || input === "q") {
       onCancel();
       exit();
       return;
@@ -122,7 +198,6 @@ export function App({ db, initialFilterCwd, initialQuery, onSelect, onCancel }: 
       return;
     }
     if (input === "H") {
-      // Toggle hide_missing_dirs and persist for next launch.
       setHideMissing(h => {
         const next = !h;
         db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('hide_missing_dirs', ?)", [next ? "1" : "0"]);
@@ -139,15 +214,53 @@ export function App({ db, initialFilterCwd, initialQuery, onSelect, onCancel }: 
       }
       return;
     }
-    if (input === "d") {
+
+    // ── BULK: Space toggles current row in/out of selection ───────────
+    if (input === " ") {
       const row = rows[selected];
       if (row) {
-        db.run("DELETE FROM sessions WHERE session_id = ?", [row.session_id]);
-        setSelected(s => Math.max(0, s - 1));
-        force(n => n + 1);
+        setSelection(prev => {
+          const next = new Set(prev);
+          if (next.has(row.session_id)) next.delete(row.session_id);
+          else next.add(row.session_id);
+          return next;
+        });
       }
       return;
     }
+
+    // ── BULK: `a` selects all visible rows ────────────────────────────
+    if (input === "a") {
+      setSelection(new Set(rows.map(r => r.session_id)));
+      return;
+    }
+
+    // ── DELETE: bulk or single ────────────────────────────────────────
+    if (input === "d") {
+      if (selection.size > 0) {
+        const ids = [...selection];
+        const placeholders = ids.map(() => "?").join(", ");
+        db.run(`DELETE FROM sessions WHERE session_id IN (${placeholders})`, ids);
+        setSelection(new Set());
+        setSelected(s => Math.max(0, s - 1));
+        force(n => n + 1);
+      } else {
+        const row = rows[selected];
+        if (row) {
+          db.run("DELETE FROM sessions WHERE session_id = ?", [row.session_id]);
+          setSelected(s => Math.max(0, s - 1));
+          force(n => n + 1);
+        }
+      }
+      return;
+    }
+
+    // ── TAG: enter tag mode ───────────────────────────────────────────
+    if (input === "t") {
+      setTagging("");
+      return;
+    }
+
     if (key.backspace || key.delete) { setQuery(q => q.slice(0, -1)); setSelected(0); return; }
     if (input && !key.ctrl && !key.meta && input.length === 1 && input >= " ") {
       setQuery(q => q + input);
@@ -161,6 +274,8 @@ export function App({ db, initialFilterCwd, initialQuery, onSelect, onCancel }: 
   const previewHeight = Math.max(4, termHeight - fixedH - listHeight - 1);
   const currentRow = rows[selected] ?? null;
   const bodyHeight = termHeight - fixedH;
+
+  const inBulk = selection.size > 0;
 
   return (
     <Box flexDirection="column" width={termWidth}>
@@ -186,11 +301,25 @@ export function App({ db, initialFilterCwd, initialQuery, onSelect, onCancel }: 
         <>
           {editing !== null ? (
             <RenameBar value={editing} target={currentRow} />
+          ) : tagging !== null ? (
+            <TagBar value={tagging} target={currentRow} existingTags={currentRow ? (tagsByRow.get(currentRow.session_id) ?? []) : []} bulkCount={selection.size} />
           ) : (
-            <SearchBar query={query} filterCwd={filterCwd} total={allRows.length} shown={rows.length} />
+            <>
+              <SearchBar query={query} filterCwd={filterCwd} total={allRows.length} shown={rows.length} />
+              {filterTags.length > 0 && (
+                <Box paddingX={2}>
+                  <Text color={theme.fgDim}>{"filter: "}</Text>
+                  {filterTags.map(tag => (
+                    <Box key={tag} marginRight={1}>
+                      <Text color={theme.accentSoft} bold>{`#${tag}`}</Text>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+            </>
           )}
           <Box borderStyle="round" borderColor={theme.borderDim} flexDirection="column" paddingX={1} height={listHeight} overflow="hidden">
-            <List rows={rows} selectedIndex={selected} height={listHeight - 2} width={termWidth - 4} />
+            <List rows={rows} selectedIndex={selected} height={listHeight - 2} width={termWidth - 4} selection={selection} tagsByRow={tagsByRow} />
           </Box>
           <Box borderStyle="round" borderColor={theme.borderDim} flexDirection="column" paddingX={1} height={previewHeight} overflow="hidden">
             <Preview row={currentRow} height={previewHeight - 3} width={termWidth - 4} />
@@ -220,12 +349,27 @@ export function App({ db, initialFilterCwd, initialQuery, onSelect, onCancel }: 
             <KeyHint k="↵" label="save" />
             <KeyHint k="Esc" label="cancel" />
           </>
+        ) : tagging !== null ? (
+          <>
+            <KeyHint k="↵" label="save tag" />
+            <KeyHint k="Esc" label="cancel" />
+          </>
+        ) : inBulk ? (
+          <>
+            <KeyHint k="Space" label="toggle" />
+            <KeyHint k="d" label={`delete ${selection.size}`} />
+            <KeyHint k="t" label={`tag ${selection.size}`} />
+            <KeyHint k="Esc" label="clear" />
+            <Text color={theme.fgDim}>{`   <${selection.size} selected>`}</Text>
+          </>
         ) : view === "sessions" ? (
           <>
             <KeyHint k="↵" label="resume" />
             <KeyHint k="r" label="rename" />
             <KeyHint k="f" label="favorite" />
+            <KeyHint k="t" label="tag" />
             <KeyHint k="d" label="delete" />
+            <KeyHint k="Space" label="select" />
             <KeyHint k="Tab" label="view" />
             <KeyHint k="?" label="help" />
             <KeyHint k="q" label="quit" />
@@ -268,6 +412,31 @@ function RenameBar({ value, target }: { value: string; target: SessionRow | null
       <Text color={theme.accent} bold>{"rename  "}</Text>
       <Text color={theme.fgDim}>{targetLabel.slice(0, 30)}</Text>
       <Text color={theme.fgDim}>{"  →  "}</Text>
+      <Text color={theme.fg} bold>{value}</Text>
+      <Text color={theme.accent}>{GLYPHS.cursor}</Text>
+    </Box>
+  );
+}
+
+function TagBar({ value, target, existingTags, bulkCount }: {
+  value: string;
+  target: SessionRow | null;
+  existingTags: string[];
+  bulkCount: number;
+}) {
+  const label = bulkCount > 0
+    ? `tag ${bulkCount} sessions`
+    : (target?.custom_name ?? target?.first_prompt ?? "(untitled)").slice(0, 24);
+  return (
+    <Box paddingX={2}>
+      <Text color={theme.accent} bold>{"tag  "}</Text>
+      <Text color={theme.fgDim}>{label}</Text>
+      <Text color={theme.fgDim}>{"  "}</Text>
+      {existingTags.map(tag => (
+        <Box key={tag} marginRight={1}>
+          <Text color={theme.accentSoft}>{`#${tag}`}</Text>
+        </Box>
+      ))}
       <Text color={theme.fg} bold>{value}</Text>
       <Text color={theme.accent}>{GLYPHS.cursor}</Text>
     </Box>
