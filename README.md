@@ -1,12 +1,5 @@
-<p align="center">
-  <img src="assets/logo.png" alt="claude-manager" width="240"/>
-</p>
 
-<pre align="center">
-   █▀▀ █▀▄▀█    claude-manager
-   █   █   █    global session resumer for claude code
-   ▀▀▀ ▀   ▀
-</pre>
+
 
 <p align="center"><strong>A global session manager + resumer for <a href="https://claude.com/claude-code">Claude Code</a>.</strong></p>
 
