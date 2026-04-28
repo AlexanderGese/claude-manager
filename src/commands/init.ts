@@ -27,13 +27,23 @@ _cm_complete() {
 complete -F _cm_complete cm
 `;
 
+// Modern zsh completion via compdef + compadd. compctl (the legacy API the
+// previous version used) silently no-ops on most real setups (Oh-My-Zsh,
+// Prezto, etc). If compinit hasn't run yet, try to load it ourselves so the
+// eval works regardless of where the user puts it in their rc.
 const ZSH_COMPLETE = `
-_cm_complete() {
-  local names
-  names="$(command claude-manager completions 2>/dev/null)"
-  reply=( \${(f)names} )
-}
-compctl -K _cm_complete cm
+if (( ! \${+functions[compdef]} )); then
+  autoload -Uz compinit 2>/dev/null
+  compinit -u 2>/dev/null
+fi
+if (( \${+functions[compdef]} )); then
+  _cm_complete() {
+    local -a items
+    items=("\${(@f)$(command claude-manager completions 2>/dev/null)}")
+    compadd -a items
+  }
+  compdef _cm_complete cm
+fi
 `;
 
 const FISH_FN = `function cm

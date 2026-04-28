@@ -21,15 +21,18 @@ test("fish variant only evals lines that look like resume commands", () => {
   expect(renderInit("fish")).toContain("'cd *&& exec *'");
 });
 
-test("zsh variant includes the cm() wrapper and zsh-specific completion", () => {
+test("zsh variant includes the cm() wrapper and modern compdef completion", () => {
   const out = renderInit("zsh");
   // The cm() wrapper function must be present.
   expect(out).toContain("cm()");
   expect(out).toContain('command claude-manager "$@"');
   expect(out).toContain('"cd "*"&& exec "*');
-  // zsh uses compctl, not complete -F.
-  expect(out).toContain("compctl -K _cm_complete cm");
-  expect(out).toContain("reply=");
+  // Modern zsh completion: compdef + compadd, with a compinit fallback.
+  expect(out).toContain("compdef _cm_complete cm");
+  expect(out).toContain("compadd");
+  expect(out).toContain("autoload -Uz compinit");
+  // Legacy compctl must be gone — it silently no-ops on Oh-My-Zsh/Prezto.
+  expect(out).not.toMatch(/compctl/);
 });
 
 test("fish variant uses fish syntax", () => {
