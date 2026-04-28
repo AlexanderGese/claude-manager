@@ -8,7 +8,22 @@
    ▀▀▀ ▀   ▀
 </pre>
 
-A global session manager + resumer for [Claude Code](https://claude.com/claude-code). Run `cm` from any directory, fuzzy-search every Claude session you've ever had, hit enter — your shell `cd`s into the original project and resumes the chat with the exact original `claude` flags.
+<p align="center"><strong>A global session manager + resumer for <a href="https://claude.com/claude-code">Claude Code</a>.</strong></p>
+
+<p align="center">
+  Run <code>cm</code> from any directory · fuzzy-search every Claude chat you've ever had · hit enter →<br/>
+  your shell <code>cd</code>'s into the original project and resumes with the exact original <code>claude</code> flags.
+</p>
+
+<p align="center">
+  <img src="assets/videos/longvideo.gif" alt="claude-manager full demo" width="800"/>
+</p>
+
+<p align="center">
+  <a href="assets/videos/longvideo.mp4">▶ HD MP4 (78s, full feature tour)</a>
+  &nbsp;·&nbsp;
+  <a href="assets/videos/shortvideo.mp4">▶ short MP4 (14s, hero clip)</a>
+</p>
 
 ```
 ╭─ ◆  claude-manager   session resumer                    121 of 121 sessions  v0.2.0 ─╮
@@ -363,3 +378,25 @@ rm -rf ~/.claudemanager
 ## Tests
 
 92 tests across 15 files (`bun test`). Type-check: `bunx tsc --noEmit`.
+
+---
+
+## Media / press kit
+
+Everything below is committed under `assets/` — drop-in for blog posts, threads, gallery slots.
+
+| Asset | Path | Notes |
+| --- | --- | --- |
+| Logo (icon-only, vector) | `assets/icon.svg` | source of truth |
+| Logo (icon-only, 1024×1024 PNG) | `assets/icon.png` | Product Hunt icon size |
+| Logo (icon-only, 240×240 PNG) | `assets/icon-240.png` | favicon / small |
+| Logo (full wordmark, vector) | `assets/logo.svg` | source of truth |
+| Logo (full wordmark, 1024×1024 PNG) | `assets/logo.png` | hero / blog header |
+| **Demo, long, MP4** | `assets/videos/longvideo.mp4` | 78s, 1500×900, full feature tour |
+| Demo, long, GIF | `assets/videos/longvideo.gif` | same content as MP4 |
+| **Demo, short, MP4** | `assets/videos/shortvideo.mp4` | 14s, 1400×800, TUI hero clip |
+| Demo, short, GIF | `assets/videos/shortvideo.gif` | same content as MP4 |
+| Original (un-slowed) demo GIF | `assets/demo.gif` | source for `longvideo` |
+| Original (un-slowed) hero GIF | `assets/hero.gif` | source for `shortvideo` |
+
+Recording scripts live in `tapes/`. Re-render any time with `vhs tapes/<file>.tape`.
