@@ -36,20 +36,33 @@ export function run(args: string[]): void {
 
   const db = openDb();
 
-  // The shell wrapper captures our stdout via $(...), so we cannot let Ink
-  // render to process.stdout. Open /dev/tty directly and wrap the FDs as
-  // tty.ReadStream / tty.WriteStream — these expose setRawMode and isTTY,
-  // which Ink requires for keyboard input. fs.createReadStream returns a
-  // plain file stream and Ink errors with "Raw mode is not supported".
-  let ttyIn: TtyReadStream;
-  let ttyOut: TtyWriteStream;
-  try {
-    ttyIn  = new TtyReadStream(openSync("/dev/tty", "r"));
-    ttyOut = new TtyWriteStream(openSync("/dev/tty", "w"));
-  } catch {
-    console.error("claude-manager: no controlling terminal — run `cm` interactively from a shell.");
-    db.close();
-    process.exit(1);
+  // When invoked through the cm() shell wrapper, stdout is captured by $(...)
+  // and stdin is still the user's TTY. We must redirect Ink to /dev/tty so the
+  // captured stdout stays clean for the resume line that the wrapper eval's.
+  //
+  // When invoked DIRECTLY as `claude-manager` (or `claude-manager pick`) from
+  // an interactive shell — including a recording session like ttyd/vhs — both
+  // stdout and stdin ARE the user's terminal. Use them. Opening /dev/tty in
+  // that case opens a different stream than the one being recorded, and the
+  // TUI never appears in the capture.
+  const stdoutIsTty = process.stdout.isTTY === true;
+  const stdinIsTty  = process.stdin.isTTY === true;
+
+  let inkStdin: TtyReadStream | typeof process.stdin;
+  let inkStdout: TtyWriteStream | typeof process.stdout;
+
+  if (stdoutIsTty && stdinIsTty) {
+    inkStdin  = process.stdin;
+    inkStdout = process.stdout;
+  } else {
+    try {
+      inkStdin  = new TtyReadStream(openSync("/dev/tty", "r"));
+      inkStdout = new TtyWriteStream(openSync("/dev/tty", "w"));
+    } catch {
+      console.error("claude-manager: no controlling terminal — run `cm` interactively from a shell.");
+      db.close();
+      process.exit(1);
+    }
   }
 
   let chosen: SessionRow | null = null;
@@ -62,7 +75,7 @@ export function run(args: string[]): void {
       onSelect: (row) => { chosen = row; },
       onCancel: () => { chosen = null; },
     }),
-    { stdout: ttyOut as any, stdin: ttyIn as any, exitOnCtrlC: false }
+    { stdout: inkStdout as any, stdin: inkStdin as any, exitOnCtrlC: false }
   );
 
   app.waitUntilExit().then(() => {
